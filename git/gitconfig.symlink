@@ -16,7 +16,7 @@
         ui = true
 [core]
         excludesfile = ~/.gitignore
-        editor = vim
+	editor = nano
 [apply]
         whitespace = nowarn
 [mergetool]
@@ -33,3 +33,6 @@
         default = simple
 [credential]
 	helper = osxkeychain
+[user]
+	email = cyberwillis@gmail.com
+	name = Willismar
