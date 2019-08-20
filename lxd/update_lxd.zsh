@@ -103,6 +103,7 @@ do_build_lxd(){
 		msg "Install LXD.";
         cd ${GOPATH}/src/github.com/lxc/lxd;
 		make update;
+		make deps;
 		msg "This is the first setup so 'deps' was manually built, skipping to build.";
 		make;
 
