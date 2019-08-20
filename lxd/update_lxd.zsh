@@ -1,6 +1,6 @@
 check_libuv()
 {
-	msg "Checking libuv"
+	msg "Manual building libuv"
 	if [[ ! -e "${GOPATH}/deps/libuv" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/libuv/libuv
@@ -14,7 +14,7 @@ check_libuv()
 
 check_sqlite()
 {
-	msg "Checking sqlite"
+	msg "Manual building sqlite"
 	if [[ ! -e "${GOPATH}/deps/sqlite" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/sqlite
@@ -28,7 +28,7 @@ check_sqlite()
 
 check_libco()
 {
-	msg "Checking libco"
+	msg "Manual building libco"
 	if [[ ! -e "${GOPATH}/deps/libco" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/freeekanayaka/libco
@@ -39,7 +39,7 @@ check_libco()
 
 check_raft()
 {
-	msg "Checking raft"
+	msg "Manual building raft"
 	if [[ ! -e "${GOPATH}/deps/raft" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/raft
@@ -52,7 +52,7 @@ check_raft()
 
 check_dqlite()
 {
-	msg "Checking libuv"
+	msg "Manual building dqlite"
 	if [[ ! -e "${GOPATH}/deps/dqlite" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/dqlite
@@ -105,11 +105,12 @@ do_build_lxd(){
 		check_dqlite;
 		do_path_config_tools;
 
-		msg "Install LXD.";
+		msg "Updating LXD dependencies";
         cd ${GOPATH}/src/github.com/lxc/lxd;
 		make update;
-		make deps;
 		msg "This is the first setup so 'deps' was manually built, skipping to build.";
+		#make deps;
+		msg "building LXD";
 		make;
 
 		cd ${GOPATH}
