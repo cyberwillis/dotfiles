@@ -1,5 +1,6 @@
 check_libuv()
 {
+	msg "Checking libuv"
 	if [[ ! -e "${GOPATH}/deps/libuv" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/libuv/libuv
@@ -13,6 +14,7 @@ check_libuv()
 
 check_sqlite()
 {
+	msg "Checking sqlite"
 	if [[ ! -e "${GOPATH}/deps/sqlite" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/sqlite
@@ -26,6 +28,7 @@ check_sqlite()
 
 check_libco()
 {
+	msg "Checking libco"
 	if [[ ! -e "${GOPATH}/deps/libco" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/freeekanayaka/libco
@@ -36,6 +39,7 @@ check_libco()
 
 check_raft()
 {
+	msg "Checking raft"
 	if [[ ! -e "${GOPATH}/deps/raft" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/raft
@@ -46,8 +50,9 @@ check_raft()
 	fi
 }
 
-check_sqlite()
+check_dqlite()
 {
+	msg "Checking libuv"
 	if [[ ! -e "${GOPATH}/deps/dqlite" ]];then
 		cd ${GOPATH}/deps
 		git clone https://github.com/CanonicalLtd/dqlite
@@ -97,7 +102,7 @@ do_build_lxd(){
 		check_sqlite;
 		check_libco;
 		check_raft;
-		check_sqlite;
+		check_dqlite;
 		do_path_config_tools;
 
 		msg "Install LXD.";
