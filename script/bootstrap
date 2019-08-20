@@ -27,12 +27,6 @@ fail () {
   exit
 }
 
-setup_zsh()
-{
-  sudo apt -y install zsh
-  sh -c "$(wget https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O -)"
-}
-
 setup_gitconfig () {
   if ! [ -f git/gitconfig.local.symlink ]
   then
@@ -143,7 +137,6 @@ install_dotfiles () {
   done
 }
 
-setup_zsh
 setup_gitconfig
 install_dotfiles
 
