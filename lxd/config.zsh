@@ -1,15 +1,3 @@
-
-launch_gpu()
-{
-    echo "Launch LXD GPU container"
-    launch_CPU;
-}
-
-launch_CPU()
-{
-    echo "CONFIGURE LXD GPU container"
-}
-
 msg() {
   echo -e "${COLOR}$(date): $1${RESET}";
 }
