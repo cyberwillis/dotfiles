@@ -2,7 +2,7 @@ msg() {
   echo -e "${COLOR}$(date): $1${RESET}";
 }
 
-update_tools()
+update_lxd()
 {
     ARG=""
 
