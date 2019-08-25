@@ -166,7 +166,7 @@ EOF
 		msg "Install LXD";
 		make update;
 
-		msg "If something wrong happens execute the following: git checkout ${LAST_GOOD_COMMIT} && make"
+		msg "If something wrong happens execute the following: git checkout ${LAST_GOOD_COMMIT} && make deps"
 		make deps;
 
 		msg "If something wrong happens execute the following: git checkout ${LAST_GOOD_COMMIT} && make"
