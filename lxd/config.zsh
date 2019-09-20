@@ -6,6 +6,8 @@ update_lxd()
 {
     ARG=""
 
+    pushd
+
     if [[ "$#" -gt 0 ]];then
         ARG="$1"
     fi
@@ -29,4 +31,6 @@ update_lxd()
     build_lxcfs ${ARG};
     build_lxd ${ARG};
     build_juju;
+
+    popd
 }
