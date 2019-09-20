@@ -3,8 +3,8 @@ lxcstart()
 {
     if [[ -n "${1}" ]]; then
         _MACHINE_CONTAINER_=${1}
-        if [[ "$(lxc ls ${_MACHINE_CONTAINER_} --format=csv 2> /dev/null)" != "" ]]; then
-            _TMP_=$(lxc ls ${_MACHINE_CONTAINER_} --format=csv | cut -d"," -f2 2> /dev/null)
+        if [[ "$(lxc ls ${_MACHINE_CONTAINER_} --format=csv | grep -E ${_MACHINE_CONTAINER_}, 2> /dev/null)" != "" ]]; then
+            _TMP_=$(lxc ls ${_MACHINE_CONTAINER_} --format=csv | grep -E ${_MACHINE_CONTAINER_}, | cut -d"," -f2 2> /dev/null)
             if [[ "${_TMP_}" == "RUNNING" ]]; then
                 lxc console "${_MACHINE_CONTAINER_}"
             elif [[ "${_TMP_}" == "STOPPED" ]]; then
@@ -25,7 +25,9 @@ lxcexec()
             if [[ "${_TMP_}" == "RUNNING" ]]; then
                 lxc exec "${_MACHINE_CONTAINER_}" -- su ubuntu
             elif [[ "${_TMP_}" == "STOPPED" ]]; then
-                lxc start "${_MACHINE_CONTAINER_}" && lxc exec "${_MACHINE_CONTAINER_}" -- su ubuntue
+                lxc start "${_MACHINE_CONTAINER_}" 
+                sleep 10;
+                lxc exec "${_MACHINE_CONTAINER_}" -- su ubuntu
             fi
         else
             echo "Container not found"
