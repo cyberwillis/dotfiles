@@ -1,6 +1,6 @@
 do_build_lxcfs(){
 
-	cd ${GOPATH}/lxcfs;
+	pushd ${GOPATH}/lxcfs;
 
 	GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
 	git fetch;
@@ -49,7 +49,7 @@ do_build_lxcfs(){
 		msg "Nothing to do";
 	fi
 
-	cd ${GOPATH};
+	popd;
 
 }
 
