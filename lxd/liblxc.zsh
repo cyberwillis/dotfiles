@@ -1,6 +1,6 @@
 do_build_liblxc(){
 
-	cd ${GOPATH}/lxc;
+	pushd ${GOPATH}/lxc;
 
 	GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
 	git fetch;
@@ -59,7 +59,7 @@ do_build_liblxc(){
 		msg "Nothing to do";
 	fi;
 
-	cd ${GOPATH};
+	popd;
 
 }
 

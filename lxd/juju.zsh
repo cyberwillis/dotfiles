@@ -1,27 +1,27 @@
 do_build_juju()
 {
-cd ${GOPATH}/src/github.com/juju/juju;
+    pushd ${GOPATH}/src/github.com/juju/juju;
 
-GITLOG_LOCAL=$(git log develop -n 1 --pretty=%H);
-git fetch;
-GITLOG_REMOTE=$(git log origin/develop -n 1 --pretty=%H);
+    GITLOG_LOCAL=$(git log develop -n 1 --pretty=%H);
+    git fetch;
+    GITLOG_REMOTE=$(git log origin/develop -n 1 --pretty=%H);
 
-if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]];
-then
-    msg "Update sources Juju";
-	git merge FETCH_HEAD;
+    if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]];
+    then
+        msg "Update sources Juju";
+        git merge FETCH_HEAD;
 
-    msg "Install Juju";
-    cd ${GOPATH}/src/github.com/juju/juju
-    export JUJU_MAKE_GODEPS=true
-    make dep
-    make build;
-    make install;
-else
-	msg "Nothing to do";
-fi
+        msg "Install Juju";
+        cd ${GOPATH}/src/github.com/juju/juju
+        export JUJU_MAKE_GODEPS=true
+        make dep
+        make build;
+        make install;
+    else
+        msg "Nothing to do";
+    fi
 
-cd ${GOPATH};
+    popd;
 }
 
 build_juju()

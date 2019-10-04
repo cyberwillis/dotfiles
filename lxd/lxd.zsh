@@ -86,7 +86,7 @@ do_path_config_tools()
 
 do_build_lxd(){
 
-	cd ${GOPATH}/src/github.com/lxc/lxd;
+	pushd ${GOPATH}/src/github.com/lxc/lxd;
 
 	LAST_GOOD_COMMIT=$(git log -n 1 --pretty=%H)
 
@@ -177,7 +177,7 @@ EOF
 		msg "Nothing to do";
 	fi
 
-	cd ${GOPATH};
+	popd;
 
 }
 
