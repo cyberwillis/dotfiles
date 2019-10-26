@@ -93,6 +93,12 @@ do_build_lxd(){
 	GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
 	git fetch;
 	GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+	
+	#If not master branch get the hash, to compile later
+	BRANCH=$(git branch | grep "\*" | cut -d" " -f2)
+	if [[ ${BRANCH} != "master" ]];then
+		BRANCH=$(git log --oneline -n1 | cut -d" " -f1)
+	fi
 
 	if [[ ${REBUILD} == "setup" ]];then
 
@@ -150,7 +156,7 @@ EOF
 		msg "Restart and manually start the service"
 
 
-	elif [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" || ${REBUILD} == "rebuild" ]];
+	elif [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" || ${REBUILD} == "rebuild" || ${BRANCH} != "master" ]];
 	then
 
 		cd ${GOPATH}/src/github.com/lxc/lxd;
@@ -159,9 +165,13 @@ EOF
 
 		msg "Update sources LXD";
 
-		git checkout master;
-
-		git merge FETCH_HEAD;
+		if [[ ${BRANCH} != "master" ]]; then
+			git checkout master;
+			git merge FETCH_HEAD;
+			git checkout ${BRANCH};
+		else
+			git merge FETCH_HEAD;
+		fi
 
 		msg "Install LXD";
 		make update;
@@ -204,7 +214,25 @@ fi
 
 if [[ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]]; then
 
-	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git golang libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
+	if [[ "$(env | grep ${GOPATH} 2> /dev/null)" == "" || ! -e "${HOME}/go" ]];then
+
+        wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz -O ${HOME}/go1.12.6.linux-amd64.tar.gz
+        sudo tar -xvf ${HOME}/go1.12.6.linux-amd64.tar.gz -C /opt/
+        sudo mv /opt/go /opt/go1.12.6
+        sudo rm -rf /usr/local/go
+        sudo ln -s /opt/go1.12.6 /usr/local/go
+
+        mkdir -p ${HOME}/go
+        
+        export GOROOT=/usr/local/go
+        export GOPATH=${HOME}/go
+        export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
+    fi
+
+	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git \
+	                         libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync \
+							 squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev 
+
 	sudo apt purge lxd -qy
 	sudo apt-get install -qy tclsh libuv1-dev
 	
