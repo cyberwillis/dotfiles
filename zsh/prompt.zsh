@@ -10,7 +10,9 @@ else
 fi
 
 git_branch() {
-  echo $($git symbolic-ref HEAD 2>/dev/null | awk -F/ {'print $NF'})
+  #echo $($git symbolic-ref HEAD 2>/dev/null | awk -F/ {'print $NF'})
+  ref=$(git branch | grep "\*" | cut -d"*" -f2 )
+  echo "${ref#' '}"
 }
 
 git_dirty() {
