@@ -26,7 +26,7 @@ lxcexec()
                 lxc exec "${_MACHINE_CONTAINER_}" -- su ubuntu
             elif [[ "${_TMP_}" == "STOPPED" ]]; then
                 lxc start "${_MACHINE_CONTAINER_}" 
-                sleep 10;
+                sleep 3;
                 lxc exec "${_MACHINE_CONTAINER_}" -- su ubuntu
             fi
         else
