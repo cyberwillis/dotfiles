@@ -41,7 +41,8 @@ do_build_lxcfs(){
 
 		msg "Install LXCfs";
 		sudo make install;
-
+		
+		sudo systemctl unmask lxcfs.service
 		sudo systemctl daemon-reload;
 		sudo systemctl start lxcfs;
 		sudo systemctl start lxd;

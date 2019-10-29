@@ -229,11 +229,21 @@ if [[ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]]; then
         export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
     fi
 
+	sudo apt remove -y golang
+	
+	sudo apt purge lxd -qy
+
 	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git \
 	                         libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync \
 							 squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev 
+	
+	sudo apt install -qy libapparmor-dev libseccomp-dev
 
-	sudo apt purge lxd -qy
+	sudo apt install -qy lvm2 thin-provisioning-tools
+	sudo apt install -qy btrfs-tools
+
+	sudo apt install -qy curl gettext jq sqlite3 uuid-runtime bzr socat
+
 	sudo apt-get install -qy tclsh libuv1-dev
 	
 	#building the LXD
