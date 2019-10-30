@@ -88,7 +88,7 @@ fi
 if [[ ! -e "${GOPATH}/lxc" ]]; then
 
 	sudo apt purge liblxc1 -y
-	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git golang libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
+	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
 	sudo apt install -qy libapparmor-dev libseccomp-dev libcap-dev
 	sudo apt install -qy libpam-cracklib libpam-doc libpam-modules libpam-modules-bin libpam-runtime libpam0g libpam0g-dev
 	#sudo yum install pam=devel libcgroup-pam -y

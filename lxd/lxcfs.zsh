@@ -78,7 +78,7 @@ fi
 
 if [[ ! -e "${GOPATH}/lxcfs" ]];then
 
-	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git golang libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
+	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
 	sudo apt install -qy fuse libfuse-dev libpam0g-dev docbook pkg-config
 	
 	cd ${GOPATH}
