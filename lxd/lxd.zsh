@@ -216,8 +216,8 @@ if [[ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]]; then
 
 	if [[ "$(env | grep ${GOPATH} 2> /dev/null)" == "" || ! -e "${HOME}/go" ]];then
 
-        wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz -O ${HOME}/go1.12.6.linux-amd64.tar.gz
-        sudo tar -xvf ${HOME}/go1.12.6.linux-amd64.tar.gz -C /opt/
+        wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz -O /tmp/go1.12.6.linux-amd64.tar.gz
+        sudo tar -xvf /tmp/go1.12.6.linux-amd64.tar.gz -C /opt/
         sudo mv /opt/go /opt/go1.12.6
         sudo rm -rf /usr/local/go
         sudo ln -s /opt/go1.12.6 /usr/local/go
