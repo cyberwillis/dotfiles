@@ -8,15 +8,6 @@ update_lxd()
 
     pushd
 
-    #if [[ "$#" -gt 0 ]];then
-    #    ARG="$1"
-    #fi
-
-    #build_liblxc ${ARG};
-    #build_lxcfs ${ARG};
-    #build_lxd_old ${ARG};
-    #build_juju;
-
     if [[ "$#" -gt 0 ]]; then
 		DATE_="$1"
 		echo "Working on date: ${DATE_}"
@@ -38,4 +29,22 @@ update_lxd()
 	do_build_lxd ${DATE_};
 
     popd
+}
+
+update_lxd1()
+{
+    ARG=""
+
+    pushd
+
+    if [[ "$#" -gt 0 ]];then
+        ARG="$1"
+    fi
+
+    build_liblxc ${ARG};
+    build_lxcfs ${ARG};
+    build_lxd_old ${ARG};
+    build_juju;
+
+	popd
 }

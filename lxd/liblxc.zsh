@@ -1,3 +1,23 @@
+check_libsecomp()
+{
+	msg "Manual building libseccomp"
+	if [[ ! -e "${GOPATH}/libseccomp" ]];then
+		cd ${GOPATH}/deps
+		git clone https://github.com/seccomp/libseccomp
+		cd ${GOPATH}/libseccomp
+	else
+		git clean -xdf
+		cd ${GOPATH}/libseccomp
+		git pull	
+	fi
+
+	./autogen.sh
+	./configure
+	make -j12
+	sudo make install
+}
+
+
 do_build_liblxc(){
 
 	pushd ${GOPATH}/lxc;
@@ -13,7 +33,6 @@ do_build_liblxc(){
 		echo "$USER:1000000:65536" | sudo tee -a /etc/subuid /etc/subgid
 		echo "root:1000000:65536" | sudo tee -a /etc/subuid /etc/subgid
 		sudo usermod --append --groups lxd $USER
-
 
 		./autogen.sh;
 		./configure --enable-pam;
@@ -44,7 +63,11 @@ do_build_liblxc(){
 		msg "Configure libLXC";
 		./autogen.sh;
 		#Ubuntu
-		./configure --enable-pam;
+		./configure --enable-pam \
+		            --enable-apparmor \
+                    --enable-seccomp \
+                    --enable-selinux \
+                    --enable-capabilities
 		#RedHat
 		#./configure --enable-pam --libdir=/usr/lib64
 		sleep 3s;
@@ -89,9 +112,15 @@ if [[ ! -e "${GOPATH}/lxc" ]]; then
 
 	sudo apt purge liblxc1 -y
 	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
-	sudo apt install -qy libapparmor-dev libseccomp-dev libcap-dev
-	sudo apt install -qy libpam-cracklib libpam-doc libpam-modules libpam-modules-bin libpam-runtime libpam0g libpam0g-dev
+	sudo apt install -qy libpam-cracklib libpam-doc libpam-modules libpam-modules-bin libpam-runtime libpam0g libpam0g-dev 
+	
+	#snapcraft.yaml -> build-packages
+	sudo apt install -qy libseccomp-dev 
+	sudo apt install -qy libapparmor-dev libcap-dev libgnutls28-dev libselinux1-dev 
+
 	#sudo yum install pam=devel libcgroup-pam -y
+
+	check_libsecomp;
 
 	cd ${GOPATH}
 	git clone https://github.com/lxc/lxc.git

@@ -708,7 +708,10 @@ whipe_lxd()
 	rm -rf criu deps libnvidia-container libseccompls lxc lxcfs src
 }
 
-
+test_lxd()
+{
+	${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
+}
 
 #Depricated
 check_libuv()

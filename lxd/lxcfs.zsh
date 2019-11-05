@@ -22,7 +22,7 @@ do_build_lxcfs(){
 
 	elif [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" || ${REBUILD} == "rebuild" ]];
 	then
-		sudo systemctl stop lxd;
+		#sudo systemctl stop lxd;
 		sudo systemctl stop lxcfs;
 
 		msg "Uninstall LXCfs";
@@ -45,7 +45,7 @@ do_build_lxcfs(){
 		sudo systemctl unmask lxcfs.service
 		sudo systemctl daemon-reload;
 		sudo systemctl start lxcfs;
-		sudo systemctl start lxd;
+		#sudo systemctl start lxd;
 	else
 		msg "Nothing to do";
 	fi
@@ -78,8 +78,11 @@ fi
 
 if [[ ! -e "${GOPATH}/lxcfs" ]];then
 
-	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev
-	sudo apt install -qy fuse libfuse-dev libpam0g-dev docbook pkg-config
+	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev  
+	
+	#snapcraft.yaml -> build-packages
+	sudo apt install -qy fuse docbook
+	sudo apt install -qy libfuse-dev libpam0g-dev pkg-config 
 	
 	cd ${GOPATH}
 	git clone https://github.com/lxc/lxcfs.git
@@ -88,6 +91,8 @@ if [[ ! -e "${GOPATH}/lxcfs" ]];then
 	do_build_lxcfs;
 
 else
+
 	do_build_lxcfs;
+
 fi
 }
