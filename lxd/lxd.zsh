@@ -415,7 +415,7 @@ do_build_lxc()
 	else
 		msg "Building liblxc / lxd.lxc (HEAD)"
 	fi
-	./autogen.sh;
+	./autogen.sh
 	./configure --enable-pam \
 				--enable-apparmor \
 				--enable-seccomp \
@@ -428,7 +428,6 @@ do_build_lxc()
 
 	make -j12
 	sudo make install
-	
 
 	#If NVIDIA-CONTAINER-RUNTIME is installed
 	if [[ -e "/usr/local/share/lxc/hooks/nvidia" ]];then
@@ -714,7 +713,7 @@ whipe_lxd()
 
 test_lxd()
 {
-	${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
+	sudo ${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
 }
 
 #Depricated
@@ -803,6 +802,38 @@ do_path_config_tools()
 	echo "${GOPATH}/deps/dqlite/.libs/"  | sudo tee -a /etc/ld.so.conf.d/lxd.conf
 	sudo ldconfig
 }
+
+build_lxcbranch()
+{
+	if [[ "$#" -gt 0 ]]; then
+		LXC_BRANCH="$1"
+		cd ${HOME}/go/lxc
+		sudo systemctl stop lxd
+		sudo make uninstall
+		git clean -xdf
+		git checkout ${LXC_BRANCH}
+		./autogen.sh
+		./configure --enable-pam \
+					--enable-apparmor \
+					--enable-seccomp \
+					--enable-selinux \
+					--enable-capabilities \
+					--disable-memfd-rexec \
+					--disable-examples \
+					--disable-doc \
+					--disable-api-docs
+		make -j12
+		sudo make install
+		sudo systemctl start lxd
+	else
+		echo "Parameter not found"
+	fi
+
+	
+}
+
+
+
 #Depricated
 do_build_lxd_old(){
 
@@ -908,8 +939,10 @@ EOF
 	popd;
 
 }
+
 #Depricated
-build_lxd_old(){
+build_lxd_old()
+{
 
 #http://patorjk.com/software/taag/#p=display&c=echo&f=Ogre&t=update-LXD
 echo "                 _       _               ____  __    ___  ";

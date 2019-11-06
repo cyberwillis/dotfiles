@@ -24,7 +24,7 @@ update_lxd()
 	do_build_dqlite ${DATE_};
 	do_build_libseccomp; #dont need old commits
 	do_build_libnvidia_container ${DATE_};
-	do_build_lxc "2019-10-24"; #fix against terminal leak memory
+	do_build_lxc ${DATE_};
 	do_build_lxcfs ${DATE_};
 	do_build_lxd ${DATE_};
 
