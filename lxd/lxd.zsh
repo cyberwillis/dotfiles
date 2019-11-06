@@ -279,6 +279,13 @@ do_build_dqlite()
 	export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"
 	export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"
 
+	#create a conf for ldconfig
+	echo "${GOPATH}/deps/sqlite/.libs/"  | sudo tee /etc/ld.so.conf.d/lxd.conf
+	echo "${GOPATH}/deps/libco/"         | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+	echo "${GOPATH}/deps/raft/.libs/"    | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+	echo "${GOPATH}/deps/dqlite/.libs/"  | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+	sudo ldconfig
+
 	echo 'export GOROOT=/usr/local/go' | tee ${HOME}/.dotfiles/lxd/path.zsh
 	echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 	echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
@@ -286,18 +293,6 @@ do_build_dqlite()
 	echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 	echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 	echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-
-	#echo 'export CGO_CFLAGS="-I${GOPATH}/sqlite/ -I${GOPATH}/libco/ -I${GOPATH}/raft/include/ -I${GOPATH}/dqlite/include/"'   | sudo tee -a ${HOME}/.profile
-	#echo 'export CGO_LDFLAGS="-L${GOPATH}/sqlite/.libs/ -L${GOPATH}/libco/ -L${GOPATH}/raft/.libs -L${GOPATH}/dqlite/.libs/"' | sudo tee -a ${HOME}/.profile
-	#echo 'export LD_LIBRARY_PATH="${GOPATH}/sqlite/.libs/:${GOPATH}/libco/:${GOPATH}/raft/.libs/:${GOPATH}/dqlite/.libs/"'    | sudo tee -a ${HOME}/.profile
-
-	cat <<EOF | sudo tee /etc/ld.so.conf.d/lxd.conf
-${GOPATH}/deps/sqlite/.libs/
-${GOPATH}/deps/libco/
-${GOPATH}/deps/raft/.libs/
-${GOPATH}/deps/dqlite/.libs/
-EOF
-	sudo ldconfig
 }
 #================================================================================
 do_build_libseccomp()
