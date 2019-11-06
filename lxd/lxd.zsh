@@ -36,8 +36,11 @@ do_install_go()
 do_install_python_packages()
 {
 	msg "Installing python libs and system packages"
-	sudo apt install -qqy build-essential git apt-file pkg-config python python-pip
+	sudo apt install -qqy build-essential git apt-file pkg-config python 
+	#sudo apt install -qqy python-pip
 	#sudo apt-file update
+	wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
+	python /tmp/get-pip.py --user
 	pip install -U pip --user
 	pip install gitup --user
 }
@@ -288,6 +291,12 @@ do_build_dqlite()
 	#echo 'export CGO_LDFLAGS="-L${GOPATH}/sqlite/.libs/ -L${GOPATH}/libco/ -L${GOPATH}/raft/.libs -L${GOPATH}/dqlite/.libs/"' | sudo tee -a ${HOME}/.profile
 	#echo 'export LD_LIBRARY_PATH="${GOPATH}/sqlite/.libs/:${GOPATH}/libco/:${GOPATH}/raft/.libs/:${GOPATH}/dqlite/.libs/"'    | sudo tee -a ${HOME}/.profile
 
+	cat <<EOF | sudo tee /etc/ld.so.conf.d/lxd.conf
+${GOPATH}/deps/sqlite/.libs/
+${GOPATH}/deps/libco/
+${GOPATH}/deps/raft/.libs/
+${GOPATH}/deps/dqlite/.libs/
+EOF
 	sudo ldconfig
 }
 #================================================================================
