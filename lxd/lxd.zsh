@@ -369,16 +369,16 @@ do_build_lxc()
 	echo " \__,_| .__/ \__,_|\__,_|\__\___|       |_|_|_.__/\____/_/\_\____/  ";
 	echo "      |_|                                                           ";
 
-	msg "Building liblxc / lxd.lxc"
 	#liblxc (https://github.com/lxc/lxc)
+	#
 	#AFTER: 
 	#      libseccomp
-	sudo apt install -y autotools-dev
-	sudo apt install -y libapparmor-dev libcap-dev libgnutls28-dev libselinux1-dev pkg-config
-
-	###
-	sudo apt install -y libpam-dev
-
+	#
+	#DEPENDS: 
+	#      autotools-dev libapparmor-dev libcap-dev 
+	#      libgnutls28-dev libselinux1-dev pkg-config
+	#      libpam-dev
+	#
 	#FLAGS
 	#--disable-selinux
 	#--disable-tests
@@ -395,44 +395,84 @@ do_build_lxc()
 	#--with-rootfs-path=/var/snap/lxd/common/lxc/
 	#--libexecdir=/snap/lxd/current/libexec/
 
+	msg "Building liblxc / lxd.lxc"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_LXC=""
+	INSTALL_LXC=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_LXC="$1"
+
+		INSTALL_LXC=1
 	fi
 
-	if [ ! -d ${GOPATH}/lxc ]; then
+	#If this path DONT exists, install libraries
+	if [[ ! -e "${GOPATH}/lxc" ]]; then
+		sudo apt install -y autotools-dev
+		sudo apt install -y libapparmor-dev libcap-dev libgnutls28-dev libselinux1-dev pkg-config
+		###
+		sudo apt install -y libpam-dev
+	fi
+	
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e ${GOPATH}/lxc ]; then
+		msg "Cloning libLXC Repository"
 		cd ${GOPATH}
 		git clone https://github.com/lxc/lxc
-	fi
-
-	cd ${GOPATH}/lxc
-	git clean -xdf
-	git checkout master
-	git pull
-	if [[ "$(echo ${DATE_BRANCH_LXC} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXC} | head -n1 | cut -d" " -f1)
-		msg "Building liblxc / lxd.lxc (${BRANCH})"
-		git checkout ${BRANCH}
 	else
-		msg "Building liblxc / lxd.lxc (HEAD)"
+		msg "Checking for updates in libLXC Repository"
+		cd ${GOPATH}/lxc
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_LXC=1
+		fi
 	fi
-	./autogen.sh
-	./configure --enable-pam \
-				--enable-apparmor \
-				--enable-seccomp \
-				--enable-selinux \
-				--enable-capabilities \
-				--disable-memfd-rexec \
-				--disable-examples \
-				--disable-doc \
-				--disable-api-docs
 
-	make -j12
-	sudo make install
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_LXC} == 1 ]]; then
+		
+		cd ${GOPATH}/lxc
+		sudo make uninstall
+		git clean -xdf
 
-	#If NVIDIA-CONTAINER-RUNTIME is installed
-	if [[ -e "/usr/local/share/lxc/hooks/nvidia" ]];then
-		sudo mkdir -p /usr/share/lxc/hooks;
-		sudo ln -sf /usr/local/share/lxc/hooks/nvidia /usr/share/lxc/hooks/nvidia;
+		if [[ "$(echo ${DATE_BRANCH_LXC} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXC} | head -n1 | cut -d" " -f1)
+			msg "Building libLXC branch (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building libLXC branch (master)"
+		fi
+
+		./autogen.sh
+		./configure --enable-pam \
+					--enable-apparmor \
+					--enable-seccomp \
+					--enable-selinux \
+					--enable-capabilities \
+					--disable-memfd-rexec \
+					--disable-examples \
+					--disable-doc \
+					--disable-api-docs
+
+		make -j12
+		sudo make install
+
+		#create symlink for nvidia hook
+		if [[ -e "/usr/local/share/lxc/hooks/nvidia" ]];then
+			sudo mkdir -p /usr/share/lxc/hooks;
+			sudo ln -sf /usr/local/share/lxc/hooks/nvidia /usr/share/lxc/hooks/nvidia;
+		fi
+
+	else
+		msg "Nothing to update in libLXC"
 	fi
 }
 #================================================================================
@@ -446,57 +486,91 @@ do_build_lxcfs()
 	echo " \__,_| .__/ \__,_|\__,_|\__\___|       \____/_/\_\____/|_| |___/ ";
 	echo "      |_|                                                         ";
 
-	msg "Building lxcfs"
-	if [[ "$(systemctl list-unit-files | grep lxcfs  2> /dev/null)" != "" ]]; then
-		sudo systemctl stop lxcfs
-	fi
-
 	#lxcfs (https://github.com/lxc/lxcfs)
-	sudo apt install -y autotools-dev
-	sudo apt install -y libfuse-dev libpam0g-dev pkg-config
-	sudo apt install -y fuse
+	#
+	#DEPENDS:
+	#      autotools-dev libfuse-dev libpam0g-dev pkg-config fuse
+	#
 	#FLAGS
 	#--datarootdir=/snap/lxd/current/
 	#--localstatedir=/var/snap/lxd/common/var/
 
-	
+	msg "Building lxcfs"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_LXCFS=""
+	INSTALL_LXCFS=0
 	if [[ "$#" -gt 0 ]]; then
-		msg "Using date: $1"
 		DATE_BRANCH_LXCFS="$1"
+
+		INSTALL_LXCFS=1
 	fi
 
-	if [ ! -d "${GOPATH}/lxcfs" ]; then
+	#If this path DONT exists, install libraries
+	if [[ ! -e "${GOPATH}/lxcfs" ]]; then
+		sudo apt install -y autotools-dev
+		sudo apt install -y libfuse-dev libpam0g-dev pkg-config
+		sudo apt install -y fuse
+	fi
+	
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/lxcfs" ]; then
+		msg "Cloning LXCfs Repository"
 		cd ${GOPATH}
 		git clone https://github.com/lxc/lxcfs
-	fi
-
-	cd ${GOPATH}/lxcfs
-	git clean -xdf
-	git checkout master
-	git pull
-	if [[ "$(echo ${DATE_BRANCH_LXCFS} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXCFS} | head -n1 | cut -d" " -f1)
-		msg "Building lxcfs (${BRANCH}) (${DATE_BRANCH_LXCFS})"
-		git checkout ${BRANCH}
 	else
-		msg "Building lxcfs (HEAD)"
-	fi
-	./bootstrap.sh;
-	./configure;
-	make -j12;
-	sudo make install;
-	
+		msg "Checking for updates in LXCfs Repository"
+		cd ${GOPATH}/lxcfs
 
-	if [[ "$(systemctl list-unit-files | grep lxcfs) 2> /dev/null" == "" ]]; then
-		sudo mkdir -p /var/lib/lxcfs
-		sudo ln -sf /usr/local/bin/lxcfs /usr/bin/lxcfs
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+			
+			INSTALL_LXCFS=1
+		fi
+	fi
+
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_LXCFS} == 1 ]]; then
+
+		# Stop the service if it exists
+		if [[ "$(systemctl list-unit-files | grep lxcfs  2> /dev/null)" != "" ]]; then
+			sudo systemctl stop lxcfs
+		fi
+
+		cd ${GOPATH}/lxcfs
+		sudo make uninstall
+		git clean -xdf
+
+		if [[ "$(echo ${DATE_BRANCH_LXCFS} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXCFS} | head -n1 | cut -d" " -f1)
+			msg "Building lxcfs (${BRANCH}) (${DATE_BRANCH_LXCFS})"
+			git checkout ${BRANCH}
+		else
+			msg "Building lxcfs (HEAD)"
+		fi
+
+		./bootstrap.sh;
+		./configure;
+		make -j12;
+		sudo make install;
+
+		# Create a service if it DONT exists
+		if [[ "$(systemctl list-unit-files | grep lxcfs) 2> /dev/null" == "" ]]; then
+			sudo mkdir -p /var/lib/lxcfs
+			sudo ln -sf /usr/local/bin/lxcfs /usr/bin/lxcfs
+		fi
 		sudo systemctl daemon-reload
 		sudo systemctl start lxcfs.service
 		systemctl status lxcfs
 	else
-		sudo systemctl daemon-reload
-		sudo systemctl start lxcfs.service
-		systemctl status lxcfs
+
+		msg "Nothing to update in LXCfs"
 	fi
 }
 #==========================
@@ -510,68 +584,117 @@ do_build_lxd()
 	echo " \__,_| .__/ \__,_|\__,_|\__\___|     \____/_/\_\/___,'   ";
 	echo "      |_|                                                 ";
 
-	msg "Building lxd"
-	if [[ "$(systemctl list-unit-files | grep lxd 2> /dev/null)" != "" ]]; then
-		sudo systemctl stop lxd
-	fi
 	#lxd (https://github.com/lxc/lxd)
+	#
+	#DEPENDS:
+	#      libacl1-dev pkg-config
+	#      acl dnsmasq-base ebtables iptables netbase pigz rsync squashfs-tools
+	#      xdelta3 xtables-addons-common
+	#
 	#AFTER:
 	#      liblxc, dqlite, sqlite
-	#sudo apt install -qy golang
-	sudo apt install -y libacl1-dev pkg-config
-	sudo apt install -y acl dnsmasq-base ebtables iptables netbase pigz rsync squashfs-tools xdelta3 xtables-addons-common
 
+	msg "Building lxd"
+	
+	#Initialize	passed arguments variable
+	DATE_BRANCH_LXD=""
+	INSTALL_LXD=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_LXD="$1"
+
+		INSTALL_LXD=1
 	fi
 
-	#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
-	cd ${HOME}
-	rm -rf ${GOPATH}/src
-	if [ ! -d "${GOPATH}/src/github.com/lxc/lxd" ];then
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/src/github.com/lxc/lxd" ];then
+		#check for GOlang too: TODO
+		sudo apt install -y libacl1-dev pkg-config
+		sudo apt install -y acl dnsmasq-base ebtables iptables netbase pigz rsync squashfs-tools xdelta3 xtables-addons-common
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]; then
+		msg "Cloning LXD Repository"
+		cd ${GOPATH}
 		go get -d -v github.com/lxc/lxd/lxd
-	fi
 
-	#change multiple branches of dependencies
-	if [[ "$(echo ${DATE_BRANCH_LXD} 2> /dev/null)" != "" ]]; then
-		cd ${GOPATH}/src
-		for REPO in $(gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*"); do 
-			cd ${REPO}
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1); 
-			msg "Building lxd-dependencies (${BRANCH})"
-			git checkout ${BRANCH}
-		done
 	else
-		msg "Building lxd-dependencies (HEAD)"
-		#cd ${GOPATH}/src
-		#for REPO in $(gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*"); do 
-		#	cd ${REPO}
-		#	BRANCH=master 
-		#	msg "Building lxd-dependencies (${BRANCH})"
-		#	git checkout ${BRANCH}
-		#done
-	fi
+		msg "Checking for updates in LXD Repository"
+		cd ${GOPATH}/src/github.com/lxc/lxd
 
-	cd ${GOPATH}/src/github.com/lxc/lxd
-	git checkout master
-	if [[ "$(echo ${DATE_BRANCH_LXD} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
-		#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
-		msg "Building lxd (${BRANCH})"
-		git checkout ${BRANCH}
-	else
-		msg "Building lxd (HEAD)"
-	fi
-	#make update
-	make
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
 	
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
 
-	#test
-	#/usr/local/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
+			# Make all depencies go to master
+			
+				
 
-	if [[ "$(systemctl list-unit-files | grep lxd) 2> /dev/null" == "" ]]; then
+			INSTALL_LXD=1
+		fi
+	fi
 
-		cat <<EOF | tee ${GOPATH}/lxd.service
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_LXD} == 1 ]]; then
+		
+		if [[ "$(systemctl list-unit-files | grep lxd 2> /dev/null)" != "" ]]; then
+			sudo systemctl stop lxd
+		fi
+
+		#change multiple branches of dependencies
+		if [[ "$(echo ${DATE_BRANCH_LXD} 2> /dev/null)" != "" ]]; then
+
+			#Remove all dependencies
+			cd ${GOPATH}/src
+			gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*" | xargs rm -rf 
+
+			#Change the branch of lxd
+			cd ${GOPATH}/src/github.com/lxc/lxd
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
+			#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
+			msg "Building lxd (${BRANCH})"
+			git clean -xdf
+			git checkout ${BRANCH}
+			
+			#Download all the depencies
+			make update
+			
+			#Change the branch of all dependencies
+			for REPO in $(gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*"); do 
+				cd ${REPO}
+				BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1); 
+				msg "Checking out lxd-dependencies (${BRANCH})"
+				git checkout ${BRANCH}
+			done
+			
+			#build
+			make
+
+		else
+			
+			#Remove all dependencies
+			cd ${GOPATH}/src
+			gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*" | xargs rm -rf 
+
+			#Change the branch of lxd
+			cd ${GOPATH}/src/github.com/lxc/lxd
+			git clean -xdf
+
+			#Download all the depencies
+			make update
+
+			#build
+			make
+		fi
+
+		if [[ "$(systemctl list-unit-files | grep lxd) 2> /dev/null" == "" ]]; then
+
+			cat <<EOF | tee ${GOPATH}/lxd.service
 [Unit]
 Description=LXD - main daemon
 After=lxcfs.service
@@ -594,75 +717,17 @@ TasksMax=infinity
 WantedBy=multi-user.target
 EOF
 
-		sudo systemctl daemon-reload
-		sudo cp ${GOPATH}/lxd.service /lib/systemd/system/lxd.service
-		sudo systemctl enable /lib/systemd/system/lxd.service
-		sudo systemctl start lxd.service
-		systemctl status lxd.service
-	else
-		sudo systemctl daemon-reload
-		sudo systemctl start lxd.service
-		systemctl status lxd.service
-	fi;
-}
+			sudo systemctl daemon-reload
+			sudo cp ${GOPATH}/lxd.service /lib/systemd/system/lxd.service
+			sudo systemctl enable /lib/systemd/system/lxd.service
+		fi;
 
-#BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH} | head -n1 | cut -d" " -f1); 
-#git checkout ${BRANCH}
-
-rebuild_lxd()
-{
-	if [[ "$#" -gt 0 ]]; then
-		DATE_BRANCH_LXD="$1"
-	fi
-
-	cd ${GOPATH}/src/github.com/lxc/lxd
-	if [[ "$(echo ${DATE_BRANCH_LXD} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
-		#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
-		msg "Building lxd (${BRANCH})"
-		git checkout ${BRANCH}
-	else
-		msg "Building lxd (HEAD)"
-		git checkout master
-	fi
-	#make update
-	make
-
-	sudo systemctl restart lxd.service
+	sudo systemctl start lxd.service
 	systemctl status lxd.service
-}
 
-rebuild_repo()
-{
-	if [[ "$#" -gt 0 ]]; then
-		DATE_BRANCH_LXD="$1"
 	fi
 
-	#change multiple branches of dependencies
-	if [[ "$(echo ${DATE_BRANCH_LXD} 2> /dev/null)" != "" ]]; then
-		cd ${GOPATH}/src
-		for REPO in $(gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*"); do 
-			cd ${REPO}
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1); 
-			msg "Building lxd-dependencies (${BRANCH})"
-			git checkout ${BRANCH}
-		done
-	else
-		cd ${GOPATH}/src
-		msg "Building lxd-dependencies (HEAD)"
-		for REPO in $(gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*"); do 
-			cd ${REPO}
-			BRANCH=master 
-			msg "Building lxd-dependencies (${BRANCH})"
-			git checkout ${BRANCH}
-		done
-	fi
-
-	cd ${GOPATH}/src/github.com/lxc/lxd
-	make
-
-	sudo systemctl restart lxd.service
-	systemctl status lxd.service
+	#/usr/local/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
 }
 
 restart_lxd()
@@ -671,13 +736,11 @@ restart_lxd()
 	systemctl status lxd | head -n12
 }
 
-
 start_lxd()
 {
 	sudo systemctl start lxd;
 	systemctl status lxd | head -n12
 }
-
 
 stop_lxd()
 {
@@ -691,13 +754,11 @@ restart_lxcfs()
 	systemctl status lxcfs | head -n12
 }
 
-
 start_lxcfs()
 {
 	sudo systemctl start lxcfs;
 	systemctl status lxcfs | head -n12
 }
-
 
 stop_lxcfs()
 {
@@ -713,8 +774,16 @@ whipe_lxd()
 
 test_lxd()
 {
+	if [[ "$(systemctl list-unit-files | grep lxd 2> /dev/null)" != "" ]]; then
+		sudo systemctl stop lxd
+	fi
 	sudo ${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
 }
+
+
+
+
+#=========================================================================================================
 
 #Depricated
 check_libuv()
@@ -944,66 +1013,66 @@ EOF
 build_lxd_old()
 {
 
-#http://patorjk.com/software/taag/#p=display&c=echo&f=Ogre&t=update-LXD
-echo "                 _       _               ____  __    ___  ";
-echo " _   _ _ __   __| | __ _| |_ ___        / /\ \/ /   /   \ ";
-echo "| | | | '_ \ / _\` |/ _\` | __/ _ \_____ / /  \  /   / /\ / ";
-echo "| |_| | |_) | (_| | (_| | ||  __/_____/ /___/  \  / /_//  ";
-echo " \__,_| .__/ \__,_|\__,_|\__\___|     \____/_/\_\/___,'   ";
-echo "      |_|                                                 ";
+	#http://patorjk.com/software/taag/#p=display&c=echo&f=Ogre&t=update-LXD
+	echo "                 _       _               ____  __    ___  ";
+	echo " _   _ _ __   __| | __ _| |_ ___        / /\ \/ /   /   \ ";
+	echo "| | | | '_ \ / _\` |/ _\` | __/ _ \_____ / /  \  /   / /\ / ";
+	echo "| |_| | |_) | (_| | (_| | ||  __/_____/ /___/  \  / /_//  ";
+	echo " \__,_| .__/ \__,_|\__,_|\__\___|     \____/_/\_\/___,'   ";
+	echo "      |_|                                                 ";
 
-RESET='\033[0m';
-COLOR='\033[1;32m';
+	RESET='\033[0m';
+	COLOR='\033[1;32m';
 
-REBUILD=0
+	REBUILD=0
 
-if [[ "$#" -gt 0 ]];then
-	if [[ "$1" == "rebuild" ]];then
-			REBUILD="$1"
+	if [[ "$#" -gt 0 ]];then
+		if [[ "$1" == "rebuild" ]];then
+				REBUILD="$1"
+		fi
 	fi
-fi
 
-if [[ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]]; then
+	if [[ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]]; then
 
-	if [[ "$(env | grep ${GOPATH} 2> /dev/null)" == "" || ! -e "${HOME}/go" ]];then
+		if [[ "$(env | grep ${GOPATH} 2> /dev/null)" == "" || ! -e "${HOME}/go" ]];then
 
-        wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz -O /tmp/go1.12.6.linux-amd64.tar.gz
-        sudo tar -xvf /tmp/go1.12.6.linux-amd64.tar.gz -C /opt/
-        sudo mv /opt/go /opt/go1.12.6
-        sudo rm -rf /usr/local/go
-        sudo ln -s /opt/go1.12.6 /usr/local/go
+			wget https://dl.google.com/go/go1.12.6.linux-amd64.tar.gz -O /tmp/go1.12.6.linux-amd64.tar.gz
+			sudo tar -xvf /tmp/go1.12.6.linux-amd64.tar.gz -C /opt/
+			sudo mv /opt/go /opt/go1.12.6
+			sudo rm -rf /usr/local/go
+			sudo ln -s /opt/go1.12.6 /usr/local/go
 
-        mkdir -p ${HOME}/go
-        
-        export GOROOT=/usr/local/go
-        export GOPATH=${HOME}/go
-        export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
-    fi
+			mkdir -p ${HOME}/go
+			
+			export GOROOT=/usr/local/go
+			export GOPATH=${HOME}/go
+			export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
+		fi
 
-	sudo apt remove -y golang
-	
-	sudo apt purge lxd -qy
+		sudo apt remove -y golang
+		
+		sudo apt purge lxd -qy
 
-	sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git \
-	                         libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync \
-							 squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev 
-	
-	sudo apt install -qy libapparmor-dev libseccomp-dev
+		sudo apt install -qy acl autoconf automake autotools-dev build-essential dnsmasq-base git \
+								libacl1-dev libcap-dev libtool libuv1-dev m4 make pkg-config rsync \
+								squashfs-tools tar tcl xz-utils ebtables libsqlite3-dev 
+		
+		sudo apt install -qy libapparmor-dev libseccomp-dev
 
-	sudo apt install -qy lvm2 thin-provisioning-tools
-	sudo apt install -qy btrfs-tools
+		sudo apt install -qy lvm2 thin-provisioning-tools
+		sudo apt install -qy btrfs-tools
 
-	sudo apt install -qy curl gettext jq sqlite3 uuid-runtime bzr socat
+		sudo apt install -qy curl gettext jq sqlite3 uuid-runtime bzr socat
 
-	sudo apt-get install -qy tclsh libuv1-dev
-	
-	#building the LXD
-	go get -d -v github.com/lxc/lxd/lxd
-	
-	REBUILD="setup"
-	do_build_lxd_old;
+		sudo apt-get install -qy tclsh libuv1-dev
+		
+		#building the LXD
+		go get -d -v github.com/lxc/lxd/lxd
+		
+		REBUILD="setup"
+		do_build_lxd_old;
 
-else
-	do_build_lxd_old;
-fi
+	else
+		do_build_lxd_old;
+	fi
 }
