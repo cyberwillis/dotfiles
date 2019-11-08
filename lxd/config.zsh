@@ -31,7 +31,7 @@ update_lxd()
     popd
 }
 
-update_lxd1()
+update_lxd_v1()
 {
     ARG=""
 
@@ -41,10 +41,10 @@ update_lxd1()
         ARG="$1"
     fi
 
-    build_liblxc ${ARG};
-    build_lxcfs ${ARG};
-    build_lxd_old ${ARG};
-    build_juju;
+    build_liblxc_v1 ${ARG};
+    build_lxcfs_v1 ${ARG};
+    build_lxd_v1 ${ARG};
+    build_juju_v1;
 
 	popd
 }

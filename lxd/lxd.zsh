@@ -9,7 +9,7 @@ msg() {
 do_install_go()
 {
 	msg "Installing GoLang"
-	if [[ ! -d "/opt/go1.11.13" ]]; then
+	if [[ ! -e "/opt/go1.11.13" ]]; then
 		wget https://dl.google.com/go/go1.11.13.linux-amd64.tar.gz -O /tmp/go1.11.13.linux-amd64.tar.gz
 		sudo tar -xvf /tmp/go1.11.13.linux-amd64.tar.gz -C /opt/
 		sudo mv /opt/go /opt/go1.11.13
@@ -22,14 +22,6 @@ do_install_go()
 		export GOROOT=/usr/local/go
 		export GOPATH=${HOME}/go
 		export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}
-
-		echo 'export GOROOT=/usr/local/go' | tee ${HOME}/.dotfiles/lxd/config.zsh
-		echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/config.zsh
-		echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/config.zsh
-
-		#echo 'export GOROOT=/usr/local/go' | tee -a ${HOME}/.profile
-		#echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.profile
-		#echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.profile
 	fi
 }
 #================================================================================
@@ -69,24 +61,29 @@ do_install_fs()
 	#zfs-8.2
 	if [[ ! -e "/etc/apt/sources.list.d/zfs.list" ]]; then
 		sudo add-apt-repository ppa:jonathonf/zfs -y
-		DISTRIBUTION=$(lsb_release -cs)
-		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/zfs.list
-		echo "#deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/zfs.list
-	fi
-	sudo apt-get update
-	sudo apt install -qqy \
-					spl \
-					spl-dkms
+		
+		#DISTRIBUTION=$(lsb_release -cs)
+		#echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/zfs.list
+		#echo "#deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/zfs.list
+	
+		sudo apt-get update
+		sudo apt install -qqy \
+						spl \
+						spl-dkms
 
-	sudo apt install -qqy \
-					zfs-dkms \
-					libnvpair1linux \
-					libuutil1linux \
-					libzfs2linux \
-					libzpool2linux \
-					zfsutils-linux \
-					zfs-zed
-					#zfs-doc \
+		sudo apt install -qqy \
+						zfs-dkms \
+						libnvpair1linux \
+						libuutil1linux \
+						libzfs2linux \
+						libzpool2linux \
+						zfsutils-linux \
+						zfs-zed
+						#zfs-doc \
+
+		msg "Reboot the machine and start this tool again"
+		sudo reboot
+	fi
 }
 #================================================================================
 do_build_criu()
@@ -417,6 +414,8 @@ do_build_lxc()
 	#If this path DONT exists, clone it. Otherwise update it
 	if [ ! -e ${GOPATH}/lxc ]; then
 		msg "Cloning libLXC Repository"
+		INSTALL_LXC=1
+
 		cd ${GOPATH}
 		git clone https://github.com/lxc/lxc
 	else
@@ -452,7 +451,7 @@ do_build_lxc()
 		fi
 
 		./autogen.sh
-		./configure --enable-pam \
+		PKG_CONFIG_PATH="${GOPATH}/libseccomp" ./configure --enable-pam \
 					--enable-apparmor \
 					--enable-seccomp \
 					--enable-selinux \
@@ -516,6 +515,8 @@ do_build_lxcfs()
 	#If this path DONT exists, clone it. Otherwise update it
 	if [ ! -e "${GOPATH}/lxcfs" ]; then
 		msg "Cloning LXCfs Repository"
+		INSTALL_LXCFS=1
+
 		cd ${GOPATH}
 		git clone https://github.com/lxc/lxcfs
 	else
@@ -615,9 +616,10 @@ do_build_lxd()
 	#If this path DONT exists, clone it. Otherwise update it
 	if [ ! -e "${GOPATH}/src/github.com/lxc/lxd" ]; then
 		msg "Cloning LXD Repository"
+		INSTALL_LXD=1
+
 		cd ${GOPATH}
 		go get -d -v github.com/lxc/lxd/lxd
-
 	else
 		msg "Checking for updates in LXD Repository"
 		cd ${GOPATH}/src/github.com/lxc/lxd
@@ -630,10 +632,6 @@ do_build_lxd()
 		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
 			git checkout master
 			git merge FETCH_HEAD;
-
-			# Make all depencies go to master
-			
-				
 
 			INSTALL_LXD=1
 		fi
