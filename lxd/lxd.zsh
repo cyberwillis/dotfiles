@@ -62,9 +62,9 @@ do_install_fs()
 	if [[ ! -e "/etc/apt/sources.list.d/zfs.list" ]]; then
 		sudo add-apt-repository ppa:jonathonf/zfs -y
 		
-		#DISTRIBUTION=$(lsb_release -cs)
-		#echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/zfs.list
-		#echo "#deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/zfs.list
+		DISTRIBUTION=$(lsb_release -cs)
+		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/zfs.list
+		echo "#deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/zfs.list
 	
 		sudo apt-get update
 		sudo apt install -qqy \
@@ -88,39 +88,72 @@ do_install_fs()
 #================================================================================
 do_build_criu()
 {
-	msg "Building Criu"
 	#criu (https://github.com/checkpoint-restore/criu)
-	sudo apt install -qqy asciidoc libcap-dev libnet1-dev libnl-3-dev libprotobuf-c-dev libprotobuf-dev protobuf-c-compiler protobuf-compiler python xmlto
-	sudo apt install -qqy libnet1 libprotobuf-c1
+	#
+	#DEPENDS:
+	#       asciidoc libcap-dev libnet1-dev libnl-3-dev libprotobuf-c-dev libprotobuf-dev protobuf-c-compiler protobuf-compiler python xmlto
+	#       libnet1 libprotobuf-c1 libbsd-dev
 
-	# search for broken links
-	#apt-file search /netlink/netlink.h
-	###
-	sudo apt install -qqy libbsd-dev
+	msg "Building Criu"
 
+	#Initialize	passed arguments variable
+	DATE_BRANCH_CRIU=""
+	INSTALL_CRIU=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_CRIU="$1"
+
+		INSTALL_CRIU=1
 	fi
 
-	if [ ! -d "${GOPATH}/criu" ]; then
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/criu" ]; then
+		sudo apt install -qqy asciidoc libcap-dev libnet1-dev libnl-3-dev libprotobuf-c-dev libprotobuf-dev protobuf-c-compiler protobuf-compiler python xmlto
+		sudo apt install -qqy libnet1 libprotobuf-c1
+		sudo apt install -qqy libbsd-dev
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/criu" ]; then
+		msg "Cloning Criu Repository"
 		cd ${GOPATH}
 		git clone https://github.com/checkpoint-restore/criu
+
+		INSTALL_CRIU=1
+	else
+		msg "Checking for updates in Criu Repository"
+		cd ${GOPATH}/criu
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_CRIU=1
+		fi
 	fi 
 
-	cd ${GOPATH}/criu
-	git clean -xdf
-	git checkout master
-	git pull
-	msg "(${DATE_BRANCH_CRIU})"
-	if [[ "$(echo ${DATE_BRANCH_CRIU} 2> /dev/null)" != "" ]]; then 
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_CRIU} | head -n1 | cut -d" " -f1)
-		msg "Building Criu (${BRANCH})"
-		git checkout ${BRANCH}
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_CRIU} == 1 ]]; then
+
+		if [[ "$(echo ${DATE_BRANCH_CRIU} 2> /dev/null)" != "" ]]; then 
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_CRIU} | head -n1 | cut -d" " -f1)
+			msg "Building Criu (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building Criu branch (master)"
+			git checkout master
+		fi
+
+		make -j12
+		#sudo make install
 	else
-		msg "Building Criu (HEAD)"
+		msg "Nothing to update in Criu"
 	fi
-	make -j12
-	#sudo make install
+
 	
 }
 #================================================================================
@@ -133,192 +166,356 @@ do_install_tools()
 #================================================================================
 do_build_libco()
 {
-	msg "Building libco"
 	#libco (https://github.com/canonical/libco)
-	sudo apt install -qqy make
+	#
+	#DEPENDS:
+	#       make
 
+	msg "Building libco"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_LIBCO=""
+	INSTALL_LIBCO=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_LIBCO="$1"
+
+		INSTALL_LIBCO=1
 	fi
 
-	mkdir -p ${GOPATH}/deps
-	if [[ ! -d "${GOPATH}/deps/libco" ]]; then
+	#If this path DONT exists, install libraries
+	if [[ ! -e "${GOPATH}/deps/libco" ]]; then
+		sudo apt install -qqy make
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [[ ! -e "${GOPATH}/deps/libco" ]]; then
+		msg "Cloning libco Repository"
+		mkdir -p ${GOPATH}/deps
 		cd ${GOPATH}/deps
 		git clone https://github.com/canonical/libco
+
+		INSTALL_LIBCO=1
+	else
+		msg "Checking for updates in libco Repository"
+		cd ${GOPATH}/deps/libco
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_LIBCO=1
+		fi
 	fi
 
-	cd ${GOPATH}/deps/libco
-	git clean -xdf
-	git checkout master
-	git pull
-	if [[ "$(echo ${DATE_BRANCH_LIBCO} 2> /dev/null)" != "" ]]; then 
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBCO} | head -n1 | cut -d" " -f1)
-		msg "Building libco (${BRANCH})"
-		git checkout ${BRANCH}
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_LIBCO} == 1 ]]; then
+
+		if [[ "$(echo ${DATE_BRANCH_LIBCO} 2> /dev/null)" != "" ]]; then 
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBCO} | head -n1 | cut -d" " -f1)
+			msg "Building libco (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building libco (master)"
+			git checkout master
+		fi
+
+		make -j12
+		#sudo make install
 	else
-		msg "Building libco (HEAD)"
-	fi
-	make -j12
-	#sudo make install
-	
+		msg "Nothing to update in libco"
+	fi	
 }
 #================================================================================
 do_build_raft()
 {
-	msg "Building raft"
 	#raft (https://github.com/canonical/raft)
-	sudo apt install -y autotools-dev
-	###
-	sudo apt install -y autoconf libtool
+	#
+	#DEPENDS:
+	#       autotools-dev autoconf libtool
+	#
 
-	mkdir -p ${GOPATH}/deps
-	if [ ! -d "${GOPATH}/deps/raft" ]; then
-		cd ${GOPATH}/deps
-		git clone https://github.com/canonical/raft
+	msg "Building Raft"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_RAFT=""
+	INSTALL_LIBRAFT=0
+	if [[ "$#" -gt 0 ]]; then
+		DATE_BRANCH_RAFT="$1"
+
+		INSTALL_LIBRAFT=1
 	fi
 
-	cd ${GOPATH}/deps/raft
-	git clean -xdf
-	git checkout master
-	git pull
-	#if [[ "$(echo ${DATE_BRANCH_RAFT} 2> /dev/null)" != "" ]]; then 
-	#	BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_RAFT} | head -n1 | cut -d" " -f1)
-	#	msg "Building raft (${BRANCH})"
-	#	git checkout ${BRANCH}
-	#else
-		msg "Building raft (HEAD)"
-	#fi
-	autoreconf -i
-	./configure
-	make -j12
-	#sudo make install
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/deps/raft" ]; then
+		sudo apt install -y autotools-dev
+		###
+		sudo apt install -y autoconf libtool
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/deps/raft" ]; then
+		msg "Cloning Raft Repository"
+		mkdir -p ${GOPATH}/deps
+		cd ${GOPATH}/deps
+		git clone https://github.com/canonical/raft
+
+		INSTALL_LIBRAFT=1
+	else
+		msg "Checking for updates in Raft Repository"
+		cd ${GOPATH}/deps/raft
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_LIBRAFT=1
+		fi
+	fi
+
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_LIBRAFT} == 1 ]]; then
+
+		if [[ "$(echo ${DATE_BRANCH_RAFT} 2> /dev/null)" != "" ]]; then 
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_RAFT} | head -n1 | cut -d" " -f1)
+			msg "Building Raft (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building Raft (master)"
+			git checkout master
+		fi
+
+		autoreconf -i
+		./configure
+		make -j12
+		#sudo make install
+	else
+		msg "Nothing to update in Raft"
+	fi
 	
 }
 #================================================================================
 do_build_sqlite()
 {
-	msg "Building sqlite"
 	#sqlite (https://github.com/canonical/sqlite)
-	#plugin
-	sudo apt install -y autotools-dev
-	#stage-packages
-	sudo apt install -y tclsh
+	#DEPENDS: 
+	#      autotools-dev tclsh
 	#FLAG 
-	#--enable-replication
+	#--enable-replication 
+	#--disable-amalgamation
+	#--disable-tcl
 
+	msg "Building SQLite"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_SQLITE=""
+	INSTALL_SQLITE=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_SQLITE="$1"
+
+		INSTALL_SQLITE=1
 	fi
 
-	mkdir -p ${GOPATH}/deps
-	if [ ! -d "${GOPATH}/deps/sqlite" ]; then
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/deps/sqlite" ]; then
+		sudo apt install -y autotools-dev
+		sudo apt install -y tclsh
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/deps/sqlite" ]; then
+		msg "Cloning SQLite Repository"
+		mkdir -p ${GOPATH}/deps
 		cd ${GOPATH}/deps
 		git clone https://github.com/canonical/sqlite
+
+		INSTALL_SQLITE=1
+	else
+		msg "Checking for updates in SQLite Repository"
+		cd ${GOPATH}/deps/sqlite
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_SQLITE=1
+		fi
 	fi
 
-	cd ${GOPATH}/deps/sqlite
-	git clean -xdf
-	git checkout master
-	git pull
-	if [[ "$(echo ${DATE_BRANCH_SQLITE} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
-		msg "Building sqlite (${BRANCH})"
-		git checkout ${BRANCH}
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_SQLITE} == 1 ]]; then
+
+		if [[ "$(echo ${DATE_BRANCH_SQLITE} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
+			msg "Building SQLite (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building SQLite (master)"
+			git checkout master
+		fi
+
+		./configure --enable-replication --disable-amalgamation --disable-tcl
+		git log -1 --format="format:%ci%n" | sed -e 's/ [-+].*$$//;s/ /T/;s/^/D /' > manifest
+		git log -1 --format="format:%H" > manifest.uuid
+		make -j12
+		#sudo make install
 	else
-		msg "Building sqlite (HEAD)"
+		msg "Nothing to update in SQLite"
 	fi
-	./configure --enable-replication --disable-amalgamation --disable-tcl
-	git log -1 --format="format:%ci%n" | sed -e 's/ [-+].*$$//;s/ /T/;s/^/D /' > manifest
-	git log -1 --format="format:%H" > manifest.uuid
-	make -j12
-	#sudo make install
 	
 }
 #================================================================================
 do_build_dqlite()
 {
-	msg "Building dqlite"
 	#dqlite (https://github.com/canonical/dqlite)
+
+	#DEPENDS:
+	#       autotools-dev libuv1 libuv1-dev
 	#AFTER:
 	#      libco, raft, sqlite
-	sudo apt install -y autotools-dev
-	sudo apt install -y libuv1
-	sudo apt install -y libuv1-dev
 
+	msg "Building DQLite"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_DQLITE=""
+	INSTALL_DQLITE=0
 	if [[ "$#" -gt 0 ]]; then
 		DATE_BRANCH_DQLITE="$1"
+
+		INSTALL_DQLITE=1
 	fi
 
-	mkdir -p ${GOPATH}/deps
-	if [ ! -d "${GOPATH}/deps/dqlite" ]; then
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/deps/dqlite" ]; then
+		sudo apt install -y autotools-dev
+		sudo apt install -y libuv1
+		sudo apt install -y libuv1-dev
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/deps/dqlite" ]; then
+		msg "Cloning DQLite Repository"
+		mkdir -p ${GOPATH}/deps
 		cd ${GOPATH}/deps
 		git clone https://github.com/canonical/dqlite
-	fi
 
-	cd ${GOPATH}/deps/dqlite
-	git clean -xdf
-	git checkout master
-	git pull
-	if [[ "$(echo ${DATE_BRANCH_DQLITE} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
-		msg "Building dqlite (${BRANCH})"
-		git checkout ${BRANCH}
+		INSTALL_DQLITE=1
 	else
-		msg "Building dqlite (HEAD)"
+		msg "Checking for updates in DQLite Repository"
+		cd ${GOPATH}/deps/dqlite
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_DQLITE=1
+		fi
 	fi
-	autoreconf -i
-	PKG_CONFIG_PATH="${GOPATH}/deps/sqlite/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/" ./configure
-	make -j12 CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/" LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs/"
-	#sudo make install
 
-	#export GOPATH=${HOME}/go
-	export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"
-	export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"
-	export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"
+	# If have parameter set prepare to install new version or a commit
+	if [[ ${INSTALL_CRIU} == 1 ]]; then
+		if [[ "$(echo ${DATE_BRANCH_DQLITE} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
+			msg "Building DQLite (${BRANCH})"
+			git checkout ${BRANCH}
+		else
+			msg "Building DQLite (master)"
 
-	#create a conf for ldconfig
-	echo "${GOPATH}/deps/sqlite/.libs/"  | sudo tee /etc/ld.so.conf.d/lxd.conf
-	echo "${GOPATH}/deps/libco/"         | sudo tee -a /etc/ld.so.conf.d/lxd.conf
-	echo "${GOPATH}/deps/raft/.libs/"    | sudo tee -a /etc/ld.so.conf.d/lxd.conf
-	echo "${GOPATH}/deps/dqlite/.libs/"  | sudo tee -a /etc/ld.so.conf.d/lxd.conf
-	sudo ldconfig
+			git checkout master
+		fi
+		autoreconf -i
+		PKG_CONFIG_PATH="${GOPATH}/deps/sqlite/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/" ./configure
+		make -j12 CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/" LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs/"
+		#sudo make install
 
-	echo 'export GOROOT=/usr/local/go' | tee ${HOME}/.dotfiles/lxd/path.zsh
-	echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-	echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		#export GOPATH=${HOME}/go
+		export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"
+		export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"
+		export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"
 
-	echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-	echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-	echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		#create a conf for ldconfig
+		echo "${GOPATH}/deps/sqlite/.libs/"  | sudo tee /etc/ld.so.conf.d/lxd.conf
+		echo "${GOPATH}/deps/libco/"         | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+		echo "${GOPATH}/deps/raft/.libs/"    | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+		echo "${GOPATH}/deps/dqlite/.libs/"  | sudo tee -a /etc/ld.so.conf.d/lxd.conf
+		sudo ldconfig
+
+		#echo 'export GOROOT=/usr/local/go' | tee ${HOME}/.dotfiles/lxd/path.zsh
+		#echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		#echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+
+		#echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		#echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		#echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+	else
+		msg "Nothing to update in libco"
+	fi
 }
 #================================================================================
 do_build_libseccomp()
 {
-	msg "Building libseccomp"
 	#libseccomp (https://github.com/seccomp/libseccomp)
-	sudo apt install -y autotools-dev
 
-	if [ ! -d "${GOPATH}/libseccomp" ]; then
-		cd ${GOPATH}
-		git clone https://github.com/seccomp/libseccomp
+	msg "Building libseccomp"
+
+	INSTALL_LIBSECCOMP=0
+	
+	if [[ ! -e "${GOPATH}/libseccomp" ]]; then
+		sudo apt install -y autotools-dev
 	fi
 
-	cd ${GOPATH}/libseccomp
-	git clean -xdf
-	git checkout master
-	git pull
-	#if [[ "$(echo ${DATE_BRANCH_LIBSECCOMP} 2> /dev/null)" != "" ]]; then
-	#	BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBSECCOMP} | head -n1 | cut -d" " -f1)
-	#	msg "Building libseccomp (${BRANCH})"
-	#	git checkout ${BRANCH}
-	#else
-		msg "Building libseccomp (HEAD)"
-	#fi
-	./autogen.sh
-	./configure
-	make -j12
-	#sudo make install
-	
+	if [ ! -e "${GOPATH}/libseccomp" ]; then
+		msg "Cloning libseccomp Repository"
+		INSTALL_LIBSECCOMP=1
+
+		cd ${GOPATH}
+		git clone https://github.com/seccomp/libseccomp
+	else
+		msg "Checking for updates in libseccomp Repository"
+
+		cd ${GOPATH}/libseccomp
+		
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_LIBSECCOMP=1
+		fi
+	fi
+
+	if [[ ${INSTALL_LIBSECCOMP} == 1 ]]; then
+		./autogen.sh
+		./configure
+		make -j12
+		sudo make install
+	else
+		msg "Nothing to update in libseccomp"
+	fi
+
 }
 #================================================================================
 do_build_libnvidia_container()
@@ -675,6 +872,7 @@ do_build_lxd()
 
 		else
 			
+			msg "Building lxd (master)"
 			#Remove all dependencies
 			cd ${GOPATH}/src
 			gitup -e "echo" . | cut -d":" -f1 | grep -E ".*/[^(lxd)].*" | xargs rm -rf 
