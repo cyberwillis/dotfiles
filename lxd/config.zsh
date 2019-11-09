@@ -19,7 +19,7 @@ update_lxd()
 	do_build_criu ${DATE_};
 	do_install_tools ;
 	do_build_libco ${DATE_};
-	do_build_raft; #didnt put date here because old commits have problems
+	do_build_raft ${DATE_}; #didnt put date here because old commits have problems
 	do_build_sqlite ${DATE_};
 	do_build_dqlite ${DATE_};
 	do_build_libseccomp; #dont need old commits
@@ -29,22 +29,4 @@ update_lxd()
 	do_build_lxd ${DATE_};
 
     popd
-}
-
-update_lxd_v1()
-{
-    ARG=""
-
-    pushd
-
-    if [[ "$#" -gt 0 ]];then
-        ARG="$1"
-    fi
-
-    build_liblxc_v1 ${ARG};
-    build_lxcfs_v1 ${ARG};
-    build_lxd_v1 ${ARG};
-    build_juju_v1;
-
-	popd
 }
