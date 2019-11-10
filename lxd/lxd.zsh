@@ -978,3 +978,38 @@ test_lxd()
 	fi
 	sudo ${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
 }
+
+log_lxd()
+{
+	cd ${GOPATH}/lxc
+	echo "libLXC (do_build_lxc):"
+	get_log_from_folder;
+	echo ""
+
+	cd ${GOPATH}/lxcfs
+	echo "LXCfs (do_build_lxcfs):"
+	get_log_from_folder;
+	echo ""
+
+	cd ${GOPATH}/src/github.com/lxc/lxd
+	echo "LXD (do_build_lxd):"
+	get_log_from_folder;
+	echo ""
+
+	cd ${HOME}
+}
+
+get_log_from_folder()
+{
+	GIT_FORMAT_REMOTE=" - %C(magenta)Origin : %C(yellow)%h %C(magenta)%ci %C(magenta)%s"
+	GIT_FORMAT_LOCAL=" - %C(reset)Master : %C(yellow)%h %C(reset)%ci %C(reset)%s"
+	GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+	git fetch;
+	GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+	if [[ ${GITLOG_LOCAL} != ${GITLOG_REMOTE} ]]; then
+		git log origin/master --pretty=format:"${GIT_FORMAT_REMOTE}" -n1
+		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1
+	else
+		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1	
+	fi
+}
