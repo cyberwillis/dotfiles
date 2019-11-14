@@ -359,6 +359,7 @@ do_build_sqlite()
 	# If have parameter set prepare to install new version or a commit
 	if [[ ${INSTALL_SQLITE} == 1 ]]; then
 
+		cd ${GOPATH}/deps/sqlite
 		if [[ "$(echo ${DATE_BRANCH_SQLITE} 2> /dev/null)" != "" ]]; then
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
 			msg "Building SQLite (${BRANCH})"
@@ -467,7 +468,7 @@ do_build_dqlite()
 		#echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 		#echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 	else
-		msg "Nothing to update in libco"
+		msg "Nothing to update in DQLite"
 	fi
 }
 #================================================================================
@@ -981,6 +982,36 @@ test_lxd()
 
 log_lxd()
 {
+    cd ${GOPATH}/criu
+    echo "Criu (do_build_criu):"
+    get_log_from_folder;
+    echo ""
+
+    cd ${GOPATH}/deps/libco
+    echo "libco (do_build_libco):"
+    get_log_from_folder;
+    echo ""
+
+    cd ${GOPATH}/deps/sqlite
+    echo "SQLite (do_build_sqlite):"
+    get_log_from_folder;
+    echo ""
+
+    cd ${GOPATH}/deps/dqlite
+    echo "DQLite (do_build_dqlite):"
+    get_log_from_folder;
+    echo ""
+
+    cd ${GOPATH}/libseccomp
+    echo "libseccomp (do_build_libseccomp):"
+    get_log_from_folder;
+    echo ""
+
+    cd ${GOPATH}/libnvidia-container
+    echo "LibNvidia-Container (do_build_libnvidia_container):"
+    get_log_from_folder;
+    echo ""
+
 	cd ${GOPATH}/lxc
 	echo "libLXC (do_build_lxc):"
 	get_log_from_folder;
