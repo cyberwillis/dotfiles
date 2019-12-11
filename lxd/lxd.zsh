@@ -433,7 +433,8 @@ do_build_dqlite()
 	fi
 
 	# If have parameter set prepare to install new version or a commit
-	if [[ ${INSTALL_CRIU} == 1 ]]; then
+	if [[ ${INSTALL_DQLITE} == 1 ]]; then
+
 		if [[ "$(echo ${DATE_BRANCH_DQLITE} 2> /dev/null)" != "" ]]; then
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
 			msg "Building DQLite (${BRANCH})"
@@ -991,6 +992,12 @@ log_lxd()
     echo "libco (do_build_libco):"
     get_log_from_folder;
     echo ""
+
+cd ${GOPATH}/deps/raft
+echo "Raft (do_build_raft):"
+get_log_from_folder;
+echo "";
+
 
     cd ${GOPATH}/deps/sqlite
     echo "SQLite (do_build_sqlite):"
