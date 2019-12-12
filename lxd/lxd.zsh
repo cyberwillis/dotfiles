@@ -138,6 +138,8 @@ do_build_criu()
 
 	# If have parameter set prepare to install new version or a commit
 	if [[ ${INSTALL_CRIU} == 1 ]]; then
+		
+		cd ${GOPATH}/criu
 
 		if [[ "$(echo ${DATE_BRANCH_CRIU} 2> /dev/null)" != "" ]]; then 
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_CRIU} | head -n1 | cut -d" " -f1)
@@ -215,6 +217,8 @@ do_build_libco()
 	# If have parameter set prepare to install new version or a commit
 	if [[ ${INSTALL_LIBCO} == 1 ]]; then
 
+		cd ${GOPATH}/deps/libco
+
 		if [[ "$(echo ${DATE_BRANCH_LIBCO} 2> /dev/null)" != "" ]]; then 
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBCO} | head -n1 | cut -d" " -f1)
 			msg "Building libco (${BRANCH})"
@@ -284,6 +288,8 @@ do_build_raft()
 
 	# If have parameter set prepare to install new version or a commit
 	if [[ ${INSTALL_LIBRAFT} == 1 ]]; then
+
+		cd ${GOPATH}/deps/raft
 
 		if [[ "$(echo ${DATE_BRANCH_RAFT} 2> /dev/null)" != "" ]]; then 
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_RAFT} | head -n1 | cut -d" " -f1)
@@ -360,6 +366,7 @@ do_build_sqlite()
 	if [[ ${INSTALL_SQLITE} == 1 ]]; then
 
 		cd ${GOPATH}/deps/sqlite
+
 		if [[ "$(echo ${DATE_BRANCH_SQLITE} 2> /dev/null)" != "" ]]; then
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
 			msg "Building SQLite (${BRANCH})"
@@ -434,6 +441,8 @@ do_build_dqlite()
 
 	# If have parameter set prepare to install new version or a commit
 	if [[ ${INSTALL_DQLITE} == 1 ]]; then
+
+		cd ${GOPATH}/deps/dqlite
 
 		if [[ "$(echo ${DATE_BRANCH_DQLITE} 2> /dev/null)" != "" ]]; then
 			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
@@ -510,6 +519,9 @@ do_build_libseccomp()
 	fi
 
 	if [[ ${INSTALL_LIBSECCOMP} == 1 ]]; then
+		
+		cd ${GOPATH}/libseccomp
+
 		./autogen.sh
 		./configure
 		make -j12
@@ -540,9 +552,11 @@ do_build_libnvidia_container()
 	fi
 
 	cd ${GOPATH}/libnvidia-container
+
 	git clean -xdf
 	git checkout master
 	git pull
+
 	if [[ "$(echo ${DATE_BRANCH_LIBNVIDIA} 2> /dev/null)" != "" ]]; then
 		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBNVIDIA} | head -n1 | cut -d" " -f1)
 		msg "Building libnvidia-container (${BRANCH})"
@@ -638,6 +652,7 @@ do_build_lxc()
 	if [[ ${INSTALL_LXC} == 1 ]]; then
 		
 		cd ${GOPATH}/lxc
+
 		sudo make uninstall
 		git clean -xdf
 
@@ -744,6 +759,7 @@ do_build_lxcfs()
 		fi
 
 		cd ${GOPATH}/lxcfs
+		
 		sudo make uninstall
 		git clean -xdf
 
@@ -967,8 +983,10 @@ stop_lxcfs()
 	systemctl status lxcfs | head -n12
 }
 
-whipe_lxd()
+wipe_lxd()
 {
+	stop_lxd
+	stop_lxcfs
 	cd ${GOPATH}
 	rm -rf criu deps libnvidia-container libseccompls lxc lxcfs src
 }
@@ -979,6 +997,35 @@ test_lxd()
 		sudo systemctl stop lxd
 	fi
 	sudo ${HOME}/go/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
+}
+
+updown_all()
+{
+	if [[ "$#" -gt 0 ]]; then
+		DATE_DOWNGRADE_UPGRADE_BRANCH="$1"
+		do_build_criu ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_libco ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_raft ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_sqlite ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_dqlite ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_libseccomp ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_libnvidia_container ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_lxc ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_lxcfs ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+		do_build_lxd ${DATE_DOWNGRADE_UPGRADE_BRANCH}
+	else
+		do_build_criu
+		do_build_libco
+		do_build_raft
+		do_build_sqlite
+		do_build_dqlite
+		do_build_libseccomp
+		do_build_libnvidia_container
+		do_build_lxc
+		do_build_lxcfs
+		do_build_lxd
+
+	fi
 }
 
 log_lxd()
