@@ -220,7 +220,7 @@ do_build_libco()
 		cd ${GOPATH}/deps/libco
 
 		if [[ "$(echo ${DATE_BRANCH_LIBCO} 2> /dev/null)" != "" ]]; then 
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBCO} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBCO} | head -n1 | cut -d" " -f1)
 			msg "Building libco (${BRANCH})"
 			git checkout ${BRANCH}
 		else
@@ -292,7 +292,7 @@ do_build_raft()
 		cd ${GOPATH}/deps/raft
 
 		if [[ "$(echo ${DATE_BRANCH_RAFT} 2> /dev/null)" != "" ]]; then 
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_RAFT} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_RAFT} | head -n1 | cut -d" " -f1)
 			msg "Building Raft (${BRANCH})"
 			git checkout ${BRANCH}
 		else
@@ -368,7 +368,7 @@ do_build_sqlite()
 		cd ${GOPATH}/deps/sqlite
 
 		if [[ "$(echo ${DATE_BRANCH_SQLITE} 2> /dev/null)" != "" ]]; then
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_SQLITE} | head -n1 | cut -d" " -f1)
 			msg "Building SQLite (${BRANCH})"
 			git checkout ${BRANCH}
 		else
@@ -445,7 +445,7 @@ do_build_dqlite()
 		cd ${GOPATH}/deps/dqlite
 
 		if [[ "$(echo ${DATE_BRANCH_DQLITE} 2> /dev/null)" != "" ]]; then
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_DQLITE} | head -n1 | cut -d" " -f1)
 			msg "Building DQLite (${BRANCH})"
 			git checkout ${BRANCH}
 		else
@@ -558,7 +558,7 @@ do_build_libnvidia_container()
 	git pull
 
 	if [[ "$(echo ${DATE_BRANCH_LIBNVIDIA} 2> /dev/null)" != "" ]]; then
-		BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBNVIDIA} | head -n1 | cut -d" " -f1)
+		BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LIBNVIDIA} | head -n1 | cut -d" " -f1)
 		msg "Building libnvidia-container (${BRANCH})"
 		git checkout ${BRANCH}
 	else
@@ -657,7 +657,7 @@ do_build_lxc()
 		git clean -xdf
 
 		if [[ "$(echo ${DATE_BRANCH_LXC} 2> /dev/null)" != "" ]]; then
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXC} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXC} | head -n1 | cut -d" " -f1)
 			msg "Building libLXC branch (${BRANCH})"
 			git checkout ${BRANCH}
 		else
@@ -764,7 +764,7 @@ do_build_lxcfs()
 		git clean -xdf
 
 		if [[ "$(echo ${DATE_BRANCH_LXCFS} 2> /dev/null)" != "" ]]; then
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXCFS} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXCFS} | head -n1 | cut -d" " -f1)
 			msg "Building lxcfs (${BRANCH}) (${DATE_BRANCH_LXCFS})"
 			git checkout ${BRANCH}
 		else
@@ -870,7 +870,7 @@ do_build_lxd()
 
 			#Change the branch of lxd
 			cd ${GOPATH}/src/github.com/lxc/lxd
-			BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
 			#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
 			msg "Building lxd (${BRANCH})"
 			git clean -xdf
@@ -882,7 +882,7 @@ do_build_lxd()
 			#Change the branch of all dependencies
 			for REPO in $(gitup -e "echo" . | cut -d":" -f1 | tail -n +4 | grep -P ".*\/[^(?=(lxd))]"); do 
 				cd ${REPO}
-				BRANCH=$(git log --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1); 
+				BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1); 
 				msg "Checking out lxd-dependencies (${BRANCH})"
 				git checkout ${BRANCH}
 			done
@@ -1088,13 +1088,21 @@ get_log_from_folder()
 {
 	GIT_FORMAT_REMOTE=" - %C(magenta)Origin : %C(yellow)%h %C(magenta)%ci %C(magenta)%s"
 	GIT_FORMAT_LOCAL=" - %C(reset)Master : %C(yellow)%h %C(reset)%ci %C(reset)%s"
+	GIT_FORMAT_ACTUAL_LOCAL=" - %C(reset)       : %C(yellow)%h %C(red)%ci %C(reset)%s" 
 	GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+	GITLOG_ACTUAL_LOCAL=$(git log -n 1 --pretty=%H);
 	git fetch;
 	GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
 	if [[ ${GITLOG_LOCAL} != ${GITLOG_REMOTE} ]]; then
 		git log origin/master --pretty=format:"${GIT_FORMAT_REMOTE}" -n1
 		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1
+		if [[ ${GITLOG_LOCAL} != ${GITLOG_ACTUAL_LOCAL} ]]; then
+			git log --pretty=format:"${GIT_FORMAT_ACTUAL_LOCAL}" -n1
+		fi
 	else
 		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1	
+		if [[ ${GITLOG_LOCAL} != ${GITLOG_ACTUAL_LOCAL} ]]; then
+			git log --pretty=format:"${GIT_FORMAT_ACTUAL_LOCAL}" -n1
+		fi
 	fi
 }
