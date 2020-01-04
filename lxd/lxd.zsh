@@ -1,4 +1,5 @@
 #!/bin/bash -e
+# https://github.com/lxc/lxd-pkg-snap/blob/latest-edge/snapcraft.yaml
 
 msg() {
 	RESET='\033[0m'
@@ -49,14 +50,68 @@ do_install_fs()
 	#ceph (install)
 	sudo apt install -qqy ceph-common libdb5.3
 	#================================================================================
+	#dqlite (build)
+	sudo apt install -qqy autotools-dev libuv1 libuv1-dev
+	#================================================================================
+	#edk2 (build)
+	sudo apt install -qqy acpica-tools qemu nasm uuid-dev 
+	#================================================================================
+	#libco (build)
+	#================================================================================
+	#libsecomp (build)
+	#================================================================================
+	#logrotate (inside snapcraft???)
+	sudo apt install -qqy logrotate libpopt0
+	#================================================================================
 	#lvm (install)
 	sudo apt install -qqy dmeventd lvm2 thin-provisioning-tools
 	#================================================================================
-	#openvswitch
+	#nvidia-container (build)
+	#================================================================================
+	#openvswitch (install)
 	sudo apt install -qqy openvswitch-switch uuid-runtime
 	#================================================================================
-	#xfs
+	#qemu (build)
+	sudo apt install -qqy qemu qemu-kvm virt-manager libvirt-daemon ovmf
+	#================================================================================
+	#qemu-ovmf-secureboot (build)
+	#================================================================================
+	#raft (build)
+	#================================================================================
+	#sqlite (build)
+	#================================================================================
+	#squashfs-tools-ng (build)
+	#================================================================================
+	#xfs (install)
 	sudo apt install -qqy xfsprogs
+	#================================================================================
+	#xtables (install)
+	sudo apt install -qqy ebtables iptables xtables-addons-common
+	#================================================================================
+	#xz (install)
+	sudo apt install -qqy xz-utils
+	#================================================================================
+	#zfs-0-6
+	#================================================================================
+	#zfs-0-7
+	#================================================================================
+	#zfs-0-8
+	#================================================================================
+	#lxc (build)
+	#================================================================================
+	#lxcfs (build)
+	#================================================================================
+	#criu (install)
+	#================================================================================
+	#lxd (build)
+	#================================================================================
+	#lxd-migrate (build)
+	#================================================================================
+	#shmounts (???)
+	#================================================================================
+	#snapquery (???)
+	#================================================================================
+	#strip (???)
 	#================================================================================
 	#zfs-8.2
 	if [[ ! -e "/etc/apt/sources.list.d/zfs.list" ]]; then
@@ -482,6 +537,117 @@ do_build_dqlite()
 	fi
 }
 #================================================================================
+do_build_edk2()
+{
+	# https://github.com/tianocore/edk2
+	#
+	#DEPENDS:
+	#       acpica-tools nasm uuid-dev
+	#AFTER:
+	#      qemu
+
+	msg "Building EDK2"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_EDK2=""
+	INSTALL_EDK2=0
+	if [[ "$#" -gt 0 ]]; then
+		DATE_BRANCH_EDK2="$1"
+
+		INSTALL_EDK2=1
+	fi
+
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/edk2" ]; then
+		sudo apt install -y acpica-tools qemu
+		sudo apt install -y nasm
+		sudo apt install -y uuid-dev
+	fi
+
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/edk2" ]; then
+		msg "Cloning EDK2 Repository"
+		#mkdir -p ${GOPATH}/edk2
+		cd ${GOPATH}
+		git clone https://github.com/tianocore/edk2
+		cd ${GOPATH}/edk2
+		git submodule update --init
+		cd ..
+
+		INSTALL_EDK2=1
+	else
+		msg "Checking for updates in EDK2 Repository"
+		cd ${GOPATH}/edk2
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+			git submodule update
+
+			INSTALL_EDK2=1
+		fi
+	fi
+
+	if [[ ${INSTALL_EDK2} == 1 ]]; then
+		cd ${GOPATH}/edk2
+
+		if [[ "$(echo ${DATE_BRANCH_EDK2} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_EDK2} | head -n1 | cut -d" " -f1)
+			msg "Building EDK2 (${BRANCH})"
+			git checkout ${BRANCH}
+			git submodule update
+		else
+			msg "Building EDK2 (master)"
+
+			git checkout master
+		fi
+
+		ARCH="X64"
+		PKG="OvmfPkg/OvmfPkgX64.dsc"
+		FV_CODE="OVMF_CODE"
+		FV_VARS="OVMF_VARS"
+		if [ "$(uname -m)" = "aarch64" ]; then
+			ARCH="AARCH64"
+			PKG="ArmVirtPkg/ArmVirtQemu.dsc"
+			FV_CODE="QEMU_EFI"
+			FV_VARS="QEMU_VARS"
+		fi
+		# Run in a bash sub-shell as edksetup.sh requires it
+		. ./edksetup.sh
+		make -j12 -C BaseTools ARCH=${ARCH}
+		build -a ${ARCH} -t GCC49 -b RELEASE -p ${PKG} \
+				-DNETWORK_HTTP_BOOT_ENABLE=TRUE \
+				-DSECURE_BOOT_ENABLE=TRUE \
+				-DFD_SIZE_2MB \
+				-DTPM2_ENABLE=TRUE
+
+		mkdir -p "${GOPATH}/share/qemu/"
+		cp Build/*/*/FV/${FV_CODE}.fd "${GOPATH}/share/qemu/OVMF_CODE.fd"
+      	cp Build/*/*/FV/${FV_VARS}.fd "${GOPATH}/share/qemu/OVMF_VARS.fd"
+
+		if [ "$(uname -m)" = "aarch64" ]; then
+          truncate -s 64m "${GOPATH}/share/qemu/OVMF_CODE.fd"
+          truncate -s 64m "${GOPATH}/share/qemu/OVMF_VARS.fd"
+      	fi
+		#	cp Build/*/*/FV/${FV_CODE}.fd "${SNAPCRAFT_PART_INSTALL}/share/qemu/OVMF_CODE.fd"
+		#	cp Build/*/*/FV/${FV_VARS}.fd "${SNAPCRAFT_PART_INSTALL}/share/qemu/OVMF_VARS.fd"
+		#	if [ "$(uname -m)" = "aarch64" ]; then
+		#		truncate -s 64m "${SNAPCRAFT_PART_INSTALL}/share/qemu/OVMF_CODE.fd"
+		#		truncate -s 64m "${SNAPCRAFT_PART_INSTALL}/share/qemu/OVMF_VARS.fd"
+		#	fi
+		#sudo make install
+	else
+		msg "Nothing to update in EDK2"
+	fi
+
+}
+#================================================================================
 do_build_libseccomp()
 {
 	#libseccomp (https://github.com/seccomp/libseccomp)
@@ -568,6 +734,297 @@ do_build_libnvidia_container()
 	#sudo make install
 	
 }
+#================================================================================
+do_build_qemu()
+{
+	# https://git.qemu.org/git/qemu.git
+	#
+ 	#DEPENDS:
+    #  bison flex pkg-config libcap-ng-dev libglib2.0-dev libpixman-1-dev libaio-dev
+    #  genisoimage libmagic1 libpixman-1-0
+
+	#AFTER:
+	#  libseccomp
+
+	#https://git.qemu.org/git/qemu.git
+	#- --disable-docs
+	#- --disable-slirp
+	#- --disable-user
+	#- --enable-attr
+	#- --enable-cap-ng
+	#- --enable-kvm
+	#- --enable-linux-aio
+	#- --enable-pie
+	#- --enable-seccomp
+	#- --enable-system
+	#- --enable-tools
+	#- --enable-vhost-crypto
+	#- --enable-vhost-kernel
+	#- --enable-vhost-net
+	#- --enable-vhost-scsi
+	#- --enable-vhost-user
+	#- --enable-vhost-vsock
+	#- --enable-virtfs
+	#- --enable-vnc
+	#- --firmwarepath=/snap/lxd/current/share/qemu/
+
+	msg "Building Qemu"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_QEMU=""
+	INSTALL_QEMU=0
+	if [[ "$#" -gt 0 ]]; then
+		DATE_BRANCH_QEMU="$1"
+
+		INSTALL_QEMU=1
+	fi
+
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/qemu" ]; then
+		sudo apt install -y - bison flex pkg-config libcap-ng-dev libglib2.0-dev libpixman-1-dev libaio-dev libfdt-dev
+		sudo apt install -y genisoimage libmagic1 libpixman-1-0
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/qemu" ]; then
+		msg "Cloning QEMU Repository"
+		cd ${GOPATH}
+		git clone --recurse https://git.qemu.org/git/qemu.git
+
+		INSTALL_QEMU=1
+	else
+		msg "Checking for updates in QEMU Repository"
+		cd ${GOPATH}/qemu
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_QEMU=1
+		fi
+	fi
+
+	if [[ ${INSTALL_QEMU} == 1 ]]; then
+		cd ${GOPATH}/qemu
+
+		if [[ "$(echo ${DATE_BRANCH_QEMU} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_QEMU} | head -n1 | cut -d" " -f1)
+			msg "Building QEMU (${BRANCH})"
+			git checkout ${BRANCH}
+			git submodule update --init --recursive
+		else
+			msg "Building QEMU (master)"
+
+			git checkout master
+			git submodule update --init --recursive
+		fi
+
+		# Mangle the configure a bit
+		sed -i "s/^unset target_list$/target_list=\"$(uname -m)-softmmu\"/" configure
+      	sed -i 's#libseccomp_minver=".*#libseccomp_minver="0.0"#g' configure
+		
+		mkdir build
+		cd build
+		# Run in a bash sub-shell as edksetup.sh requires it
+		../configure \
+		--disable-docs \
+		--disable-slirp \
+		--disable-user \
+		--enable-attr \
+		--enable-cap-ng \
+		--enable-kvm \
+		--enable-linux-aio \
+		--enable-pie \
+		--enable-seccomp \
+		--enable-system \
+		--enable-tools \
+		--enable-vhost-crypto \
+		--enable-vhost-kernel \
+		--enable-vhost-net \
+		--enable-vhost-scsi \
+		--enable-vhost-user \
+		--enable-vhost-vsock \
+		--enable-virtfs \
+		--enable-vnc \
+		--prefix=/usr \
+		--firmwarepath=/usr/share/OVMF/
+		
+		#--libseccomppath=${GOPATH}/libseccomp \
+	   	#--firmwarepath=/snap/lxd/current/share/qemu/
+		make -j12
+		sudo make install
+
+		#mkdir -p ${GOPATH}/share
+		#cp pc-bios/efi-virtio.rom ${GOPATH}/share/qemu/
+		#cp pc-bios/kvmvapic.bin ${GOPATH}/share/qemu/
+	else
+		msg "Nothing to update in QEmu"
+	fi
+
+}
+
+build_qemu_ovmf_secureboot()
+{
+	# https://github.com/puiterwijk/qemu-ovmf-secureboot
+	#
+ 	#DEPENDS:
+    #  xorriso
+
+	#AFTER:
+	#  edk2
+    #  qemu
+
+	#https://git.qemu.org/git/qemu.git
+	#- --disable-docs
+	#- --disable-slirp
+	#- --disable-user
+	#- --enable-attr
+	#- --enable-cap-ng
+	#- --enable-kvm
+	#- --enable-linux-aio
+	#- --enable-pie
+	#- --enable-seccomp
+	#- --enable-system
+	#- --enable-tools
+	#- --enable-vhost-crypto
+	#- --enable-vhost-kernel
+	#- --enable-vhost-net
+	#- --enable-vhost-scsi
+	#- --enable-vhost-user
+	#- --enable-vhost-vsock
+	#- --enable-virtfs
+	#- --enable-vnc
+	#- --firmwarepath=/snap/lxd/current/share/qemu/
+
+	msg "Building QEMU_OVMF"
+
+	#Initialize	passed arguments variable
+	DATE_BRANCH_QEMU_OVMF=""
+	INSTALL_QEMU_OVMF=0
+	if [[ "$#" -gt 0 ]]; then
+		DATE_BRANCH_QEMU_OVMF="$1"
+
+		INSTALL_QEMU_OVMF=1
+	fi
+
+	#If this path DONT exists, install libraries
+	if [ ! -e "${GOPATH}/qemu-ovmf-secureboot" ]; then
+		sudo apt install -y xorriso
+	fi
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/qemu-ovmf-secureboot" ]; then
+		msg "Cloning QEMU_OVMF Repository"
+		cd ${GOPATH}
+		git clone --recurse https://github.com/puiterwijk/qemu-ovmf-secureboot
+
+		INSTALL_QEMU_OVMF=1
+	else
+		msg "Checking for updates in QEMU_OVMF Repository"
+		cd ${GOPATH}/qemu-ovmf-secureboot
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_QEMU_OVMF=1
+		fi
+	fi
+
+	if [[ ${INSTALL_QEMU_OVMF} == 1 ]]; then
+		cd ${GOPATH}/qemu-ovmf-secureboot
+
+		if [[ "$(echo ${DATE_BRANCH_QEMU_OVMF} 2> /dev/null)" != "" ]]; then
+			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_QEMU_OVMF} | head -n1 | cut -d" " -f1)
+			msg "Building QEMU_OVMF (${BRANCH})"
+			git checkout ${BRANCH}
+			git submodule update --init --recursive
+		else
+			msg "Building QEMU_OVMF (master)"
+
+			git checkout master
+			git submodule update --init --recursive
+		fi
+
+		rm -Rf iso-root vfat-root shell.iso
+		mkdir -p iso-root vfat-root/efi/boot
+
+		cp ${GOPATH}/edk2/Build/*/*/*/Shell.efi vfat-root/efi/boot/bootx64.efi
+      	cp ${GOPATH}/edk2/Build/*/*/*/EnrollDefaultKeys.efi vfat-root/
+		#${GOPATH}/qemu/qemu-img convert --image-opts driver=vvfat,floppy=on,fat-type=12,label=UEFI_SHELL,dir=vfat-root iso-root/shell.img 
+		qemu-img convert --image-opts driver=vvfat,floppy=on,fat-type=12,label=UEFI_SHELL,dir=vfat-root iso-root/shell.img 
+		xorriso --as mkisofs -input-charset ASCII -J -rational-rock -e shell.img -no-emul-boot -o shell.iso iso-root/
+		
+		if [ "$(uname -m)" = "aarch64" ]; then
+          sed -i ovmf-vars-generator \
+              -e "s/'-machine', machinetype,/'-machine', 'virt', '-cpu', 'cortex-a57',/" \
+              -e "/charserial1/d" \
+              -e "s/ide-cd/scsi-cd/" \
+              -e "s/'-device',$/'-device', 'virtio-scsi-pci,id=scsi', '-device',/"
+			#elif [ "$(uname -m)" = "x86_64" ]; then
+			#cp -f "${GOPATH}/share/qemu/kvmvapic.bin" .
+			#cp  -f /usr/local/share/qemu/kvmvapic.bin .
+
+			#cp -f /usr/share/qemu/kvmvapic.bin .
+		fi
+
+		python3 ovmf-vars-generator \
+        --ovmf-binary "/usr/share/OVMF/OVMF_CODE.fd" \
+        --uefi-shell-iso shell.iso \
+        --ovmf-template-vars "/usr/share/OVMF/OVMF_VARS.fd" \
+		--qemu-binary "qemu-system-$(uname -m)" \
+        --print-output --disable-smm --skip-testing \
+		"${GOPATH}/share/qemu/OVMF.fd"
+
+		#mkdir -p "${GOPATH}/share/qemu/"
+		#python3 ovmf-vars-generator \
+        #--ovmf-binary "${GOPATH}/share/qemu/OVMF_CODE.fd" \
+        #--uefi-shell-iso shell.iso \
+        #--ovmf-template-vars "${GOPATH}/share/qemu/OVMF_VARS.fd" \
+		#--qemu-binary "qemu-system-$(uname -m)" \
+        #--print-output --disable-smm --skip-testing \
+		#"${GOPATH}/share/qemu/OVMF_VARS.ms.fd"
+		
+		#--fedora-version 27 \
+    	#--kernel-path /tmp/qosb.kernel \
+    	#--kernel-url https://download.fedoraproject.org/pub/fedora/linux/releases/27/Everything/x86_64/os/images/pxeboot/vmlinuz \
+        #--print-output --skip-testing --no-download \
+		#--qemu-binary "$(uname -m)-softmmu/qemu-system-$(uname -m)" \
+        #--oem-string "$(cat ${SNAPCRAFT_PROJECT_DIR}/snapcraft/etc/ubuntu-sb.crt)" \
+		#--qemu-binary "${GOPATH}/qemu/$(uname -m)-softmmu/qemu-system-$(uname -m)" \
+		#${GOPATH}/qemu/build/pc-bios/OVMF_VARS.ms.fd
+
+		make -j12
+		sudo make install
+	else
+		msg "Nothing to update in QEmu"
+	fi
+}
+#================================================================================
+do_build_squashfs_tools()
+{
+	sudo apt install -qqy liblzma-dev doxygen
+
+	cd ${GOPAH}
+	git clone https://github.com/AgentD/squashfs-tools-ng
+	squashfs-tools-ng
+
+	./autogenls
+	./configure
+	make -j12
+	sudo make install
+}
+
 #================================================================================
 do_build_lxc()
 {
