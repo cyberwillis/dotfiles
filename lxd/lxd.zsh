@@ -1078,7 +1078,7 @@ do_build_lxc()
 		sudo apt install -y autotools-dev
 		sudo apt install -y libapparmor-dev libcap-dev libgnutls28-dev libselinux1-dev pkg-config
 		###
-		sudo apt install -y libpam-dev
+		sudo apt install -y libpam-dev libssl-dev
 	fi
 	
 	#If this path DONT exists, clone it. Otherwise update it
@@ -1179,8 +1179,8 @@ do_build_lxcfs()
 	#If this path DONT exists, install libraries
 	if [[ ! -e "${GOPATH}/lxcfs" ]]; then
 		sudo apt install -y autotools-dev
-		sudo apt install -y libfuse-dev libpam0g-dev pkg-config
-		sudo apt install -y fuse
+		sudo apt install -y fuse libfuse2 libfuse-dev
+		sudo apt install -y libpam0g-dev pkg-config
 	fi
 	
 	#If this path DONT exists, clone it. Otherwise update it
@@ -1487,54 +1487,71 @@ updown_all()
 
 log_lxd()
 {
+	export COMMAND=""
+	export BUILD_NOW=0
+	if [[ "$#" -gt 0 ]]; then
+		if [[ "$1" == "build" ]]; then
+			BUILD_NOW=1
+		fi
+	fi
+
     cd ${GOPATH}/criu
-    echo "Criu (do_build_criu):"
+	COMMAND="do_build_criu"
+    echo "Criu ($COMMAND):"
     get_log_from_folder;
     echo ""
 
     cd ${GOPATH}/deps/libco
-    echo "libco (do_build_libco):"
+	COMMAND="do_build_libco"
+    echo "libco ($COMMAND):"
     get_log_from_folder;
     echo ""
 
-cd ${GOPATH}/deps/raft
-echo "Raft (do_build_raft):"
-get_log_from_folder;
-echo "";
-
+	cd ${GOPATH}/deps/raft
+	COMMAND="do_build_raft"
+	echo "Raft ($COMMAND):"
+	get_log_from_folder;
+	echo "";
 
     cd ${GOPATH}/deps/sqlite
-    echo "SQLite (do_build_sqlite):"
+	COMMAND="do_build_sqlite"
+    echo "SQLite ($COMMAND):"
     get_log_from_folder;
     echo ""
 
     cd ${GOPATH}/deps/dqlite
-    echo "DQLite (do_build_dqlite):"
+	COMMAND="do_build_dqlite"
+    echo "DQLite ($COMMAND):"
     get_log_from_folder;
     echo ""
 
     cd ${GOPATH}/libseccomp
-    echo "libseccomp (do_build_libseccomp):"
+	COMMAND="do_build_libseccomp"
+    echo "libseccomp ($COMMAND):"
     get_log_from_folder;
     echo ""
 
     cd ${GOPATH}/libnvidia-container
-    echo "LibNvidia-Container (do_build_libnvidia_container):"
+	COMMAND="do_build_libnvidia_container"
+    echo "LibNvidia-Container ($COMMAND):"
     get_log_from_folder;
     echo ""
 
 	cd ${GOPATH}/lxc
-	echo "libLXC (do_build_lxc):"
+	COMMAND="do_build_lxc"
+	echo "libLXC ($COMMAND):"
 	get_log_from_folder;
 	echo ""
 
 	cd ${GOPATH}/lxcfs
-	echo "LXCfs (do_build_lxcfs):"
+	COMMAND="do_build_lxcfs"
+	echo "LXCfs ($COMMAND):"
 	get_log_from_folder;
 	echo ""
 
 	cd ${GOPATH}/src/github.com/lxc/lxd
-	echo "LXD (do_build_lxd):"
+	COMMAND="do_build_lxd"
+	echo "LXD ($COMMAND):"
 	get_log_from_folder;
 	echo ""
 
@@ -1555,6 +1572,10 @@ get_log_from_folder()
 		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1
 		if [[ ${GITLOG_LOCAL} != ${GITLOG_ACTUAL_LOCAL} ]]; then
 			git log --pretty=format:"${GIT_FORMAT_ACTUAL_LOCAL}" -n1
+		fi
+		#build if passed eny parameter
+		if [[ ${BUILD_NOW} == 1 ]]; then
+			eval "${COMMAND}"
 		fi
 	else
 		git log master --pretty=format:"${GIT_FORMAT_LOCAL}" -n1	
