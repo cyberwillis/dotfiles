@@ -114,7 +114,7 @@ do_install_fs()
 	#strip (???)
 	#================================================================================
 	#zfs-8.2
-	if [[ ! -e "/etc/apt/sources.list.d/zfs.list" ]]; then
+	if [[ ! -e "/etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list" ]]; then
 		sudo add-apt-repository ppa:jonathonf/zfs -y
 		
 		DISTRIBUTION=$(lsb_release -cs)
