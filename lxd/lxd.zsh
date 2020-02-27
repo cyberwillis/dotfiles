@@ -118,8 +118,8 @@ do_install_fs()
 		sudo add-apt-repository ppa:jonathonf/zfs -y
 		
 		DISTRIBUTION=$(lsb_release -cs)
-		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/zfs.list
-		echo "#deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/zfs.list
+		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list
+		echo "# deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list
 	
 		sudo apt-get update
 		sudo apt install -qqy \
@@ -529,9 +529,10 @@ do_build_dqlite()
 		#echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 		#echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 
-		#echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-		#echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
-		#echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | tee -a ${HOME}/.dotfiles/lxd/path.zsh
+		echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' | sudo tee /etc/environment
+		echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | sudo tee -a /etc/environment
+		echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | sudo tee -a /etc/environment
+		echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | sudo tee -a /etc/environment
 	else
 		msg "Nothing to update in DQLite"
 	fi
@@ -1131,9 +1132,10 @@ do_build_lxc()
 					--disable-examples \
 					--disable-doc \
 					--disable-api-docs
-
 		make -j12
 		sudo make install
+
+		sudo ldconfig
 
 		#create symlink for nvidia hook
 		if [[ -e "/usr/local/share/lxc/hooks/nvidia" ]];then
@@ -1234,10 +1236,10 @@ do_build_lxcfs()
 		sudo make install;
 
 		# Create a service if it DONT exists
-		if [[ "$(systemctl list-unit-files | grep lxcfs) 2> /dev/null" == "" ]]; then
-			sudo mkdir -p /var/lib/lxcfs
-			sudo ln -sf /usr/local/bin/lxcfs /usr/bin/lxcfs
-		fi
+		#if [[ "$(systemctl list-unit-files | grep lxcfs) 2> /dev/null" == "" ]]; then
+		sudo mkdir -p /var/lib/lxcfs
+		sudo ln -sf /usr/local/bin/lxcfs /usr/bin/lxcfs
+		#fi
 		sudo systemctl daemon-reload
 		sudo systemctl start lxcfs.service
 		systemctl status lxcfs
