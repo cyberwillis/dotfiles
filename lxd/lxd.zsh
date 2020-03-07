@@ -51,7 +51,7 @@ do_install_fs()
 	sudo apt install -qqy ceph-common libdb5.3
 	#================================================================================
 	#dqlite (build)
-	sudo apt install -qqy autotools-dev libuv1 libuv1-dev
+	sudo apt install -qqy autotools-dev libuv1 libuv1-dev libudev-dev
 	#================================================================================
 	#edk2 (build)
 	sudo apt install -qqy acpica-tools qemu nasm uuid-dev 
@@ -1221,6 +1221,8 @@ do_build_lxcfs()
 		
 		sudo make uninstall
 		git clean -xdf
+		sudo rm -rf ./src/.deps
+		sudo rm -rf ./src/.libs
 
 		if [[ "$(echo ${DATE_BRANCH_LXCFS} 2> /dev/null)" != "" ]]; then
 			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXCFS} | head -n1 | cut -d" " -f1)
@@ -1232,12 +1234,13 @@ do_build_lxcfs()
 
 		./bootstrap.sh;
 		./configure;
-		make -j12;
+		sudo make -j12;
 		sudo make install;
 
 		# Create a service if it DONT exists
 		#if [[ "$(systemctl list-unit-files | grep lxcfs) 2> /dev/null" == "" ]]; then
-		sudo mkdir -p /var/lib/lxcfs
+		#sudo mkdir -p /var/lib/lxcfs
+		sudo mkdir -p /usr/local/var/lib/lxcfs
 		sudo ln -sf /usr/local/bin/lxcfs /usr/bin/lxcfs
 		#fi
 		sudo systemctl daemon-reload
@@ -1368,7 +1371,7 @@ do_build_lxd()
 			make
 		fi
 
-		if [[ "$(systemctl list-unit-files | grep lxd) 2> /dev/null" == "" ]]; then
+		if [[ "$(systemctl list-unit-files | grep lxd 2> /dev/null)" == "" ]]; then
 
 			cat <<EOF | tee ${GOPATH}/lxd.service
 [Unit]
