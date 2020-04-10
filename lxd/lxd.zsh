@@ -59,6 +59,7 @@ do_install_fs()
 	#libco (build)
 	#================================================================================
 	#libsecomp (build)
+	sudo apt install -qyy gperf
 	#================================================================================
 	#logrotate (inside snapcraft???)
 	sudo apt install -qqy logrotate libpopt0
@@ -652,6 +653,7 @@ do_build_edk2()
 do_build_libseccomp()
 {
 	#libseccomp (https://github.com/seccomp/libseccomp)
+	#gperf
 
 	msg "Building libseccomp"
 
