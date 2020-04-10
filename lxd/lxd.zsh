@@ -115,12 +115,13 @@ do_install_fs()
 	#strip (???)
 	#================================================================================
 	#zfs-8.2
-	if [[ ! -e "/etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list" ]]; then
+	DISTRIBUTION=$(lsb_release -cs)
+	
+	if [[ ! -e "/etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list" ]]; then
 		sudo add-apt-repository ppa:jonathonf/zfs -y
 		
-		DISTRIBUTION=$(lsb_release -cs)
-		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list
-		echo "# deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-xenial.list
+		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
+		echo "# deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
 	
 		sudo apt-get update
 		sudo apt install -qqy \
