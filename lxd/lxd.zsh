@@ -115,32 +115,31 @@ do_install_fs()
 	#strip (???)
 	#================================================================================
 	#zfs-8.2
-	DISTRIBUTION=$(lsb_release -cs)
-	
-	if [[ ! -e "/etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list" ]]; then
-		sudo add-apt-repository ppa:jonathonf/zfs -y
-		
-		echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
-		echo "# deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
-	
-		sudo apt-get update
-		sudo apt install -qqy \
-						spl \
-						spl-dkms
-
-		sudo apt install -qqy \
-						zfs-dkms \
-						libnvpair1linux \
-						libuutil1linux \
-						libzfs2linux \
-						libzpool2linux \
-						zfsutils-linux \
-						zfs-zed
-						#zfs-doc \
-
-		msg "Reboot the machine and start this tool again"
-		sudo reboot
-	fi
+	#DISTRIBUTION=$(lsb_release -cs)
+	#if [[ ! -e "/etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list" ]]; then
+	#	sudo add-apt-repository ppa:jonathonf/zfs -y
+	#	
+	#	echo "deb http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
+	#	echo "# deb-src http://ppa.launchpad.net/jonathonf/zfs/ubuntu ${DISTRIBUTION} main" | sudo tee -a /etc/apt/sources.list.d/jonathonf-ubuntu-zfs-${DISTRIBUTION}.list
+	#
+	#	sudo apt-get update
+	#	sudo apt install -qqy \
+	#					spl \
+	#					spl-dkms
+	#
+	#	sudo apt install -qqy \
+	#					zfs-dkms \
+	#					libnvpair1linux \
+	#					libuutil1linux \
+	#					libzfs2linux \
+	#					libzpool2linux \
+	#					zfsutils-linux \
+	#					zfs-zed
+	#					#zfs-doc \
+	#
+	#	msg "Reboot the machine and start this tool again"
+	#	sudo reboot
+	#fi
 }
 #================================================================================
 do_build_criu()
