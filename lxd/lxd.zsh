@@ -10,14 +10,15 @@ msg() {
 do_install_go()
 {
 	msg "Installing GoLang"
-	if [[ ! -e "/opt/go1.11.13" ]]; then
-		wget https://dl.google.com/go/go1.11.13.linux-amd64.tar.gz -O /tmp/go1.11.13.linux-amd64.tar.gz
-		sudo tar -xvf /tmp/go1.11.13.linux-amd64.tar.gz -C /opt/
-		sudo mv /opt/go /opt/go1.11.13
+	if [[ ! -e "/opt/go1.14.4" ]]; then
+		#wget https://dl.google.com/go/go1.11.13.linux-amd64.tar.gz -O /tmp/go1.11.13.linux-amd64.tar.gz
+                wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz -O /tmp/go1.14.4.linux-amd64.tar.gz
+		sudo tar -xvf /tmp/go1.14.4.linux-amd64.tar.gz -C /opt/
+		sudo mv /opt/go /opt/go1.14.4
 		if [ -d /usr/local/go ]; then
 			sudo rm -rf /usr/local/go
 		fi
-		sudo ln -s /opt/go1.11.13 /usr/local/go
+		sudo ln -s /opt/go1.14.4 /usr/local/go
 
 		mkdir -p ${HOME}/go
 		export GOROOT=/usr/local/go
@@ -530,7 +531,7 @@ do_build_dqlite()
 		#echo 'export GOPATH=${HOME}/go'  | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 		#echo 'export PATH=${GOPATH}/bin:${GOROOT}/bin:${PATH}' | tee -a ${HOME}/.dotfiles/lxd/path.zsh
 
-		echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' | sudo tee /etc/environment
+		echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' | sudo tee /etc/environment
 		echo 'export CGO_CFLAGS="-I${GOPATH}/deps/sqlite/ -I${GOPATH}/deps/libco/ -I${GOPATH}/deps/raft/include/ -I${GOPATH}/deps/dqlite/include/"'   | sudo tee -a /etc/environment
 		echo 'export CGO_LDFLAGS="-L${GOPATH}/deps/sqlite/.libs/ -L${GOPATH}/deps/libco/ -L${GOPATH}/deps/raft/.libs -L${GOPATH}/deps/dqlite/.libs/"' | sudo tee -a /etc/environment
 		echo 'export LD_LIBRARY_PATH="${GOPATH}/deps/sqlite/.libs/:${GOPATH}/deps/libco/:${GOPATH}/deps/raft/.libs/:${GOPATH}/deps/dqlite/.libs/"'    | sudo tee -a /etc/environment
@@ -681,6 +682,7 @@ do_build_libseccomp()
 		#If has difference set variable and update master
 		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
 			git checkout master
+			git checkout configure.ac #override the old modified file
 			git merge FETCH_HEAD;
 
 			INSTALL_LIBSECCOMP=1
@@ -690,11 +692,20 @@ do_build_libseccomp()
 	if [[ ${INSTALL_LIBSECCOMP} == 1 ]]; then
 		
 		cd ${GOPATH}/libseccomp
-
+        
+		git clean -xdf 
+		#make clean
 		./autogen.sh
 		./configure
+
+		# the master source don't have information about the version so this line is needed to make the compiled version be used in 1st place
+		sed -i 's:AC_INIT(\[libseccomp\], \[0.0.0\]):AC_INIT(\[libseccomp\], \[2.5.0\]):g' configure.ac
+
 		make -j12
 		sudo make install
+		echo "/usr/local/lib/"  | sudo tee /etc/ld.so.conf.d/libseccomp.conf
+		sudo ldconfig
+
 	else
 		msg "Nothing to update in libseccomp"
 	fi
@@ -737,6 +748,160 @@ do_build_libnvidia_container()
 	#sudo make install
 	
 }
+
+## spice-server from package needs libjpeg62, all those libraries conflict to each other
+#sudo apt install -y \
+#        libjpeg62 libjpeg62-dev \
+#        libjpeg8  libjpeg8-dev \
+#		libjpeg9  libjpeg9-dev
+
+#================================================================================
+do_build_spice_protocol()
+{
+	# https://gitlab.freedesktop.org/spice/spice-protocol.git
+	# Python3 packages
+	#	ninja
+	#   meson
+
+	msg "Spice-Protocol"
+
+	INSTALL_SPICE_PROTOCOL=0
+
+	#If this path DONT exists, clone it. Otherwise update it
+	if [ ! -e "${GOPATH}/spice-protocol" ]; then
+		msg "Cloning spice-protocol Repository"
+		cd ${GOPATH}
+		git clone --recurse https://gitlab.freedesktop.org/spice/spice-protocol.git
+
+		INSTALL_SPICE_PROTOCOL=1
+	else
+		msg "Checking for updates in spice-protocol Repository"
+		cd ${GOPATH}/spice-protocol
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			INSTALL_SPICE_PROTOCOL=1
+		fi
+	fi
+
+	if [[ ${INSTALL_SPICE_PROTOCOL} == 1 ]]; then
+		cd ${GOPATH}/spice-protocol
+
+		pip3 install -U meson ninja --user
+		
+		git clean -xdf
+
+		meson --buildtype=release build --prefix ${GOPATH}/spice-protocol/release
+
+		#meson setup builddir 
+		meson install -C build
+		sudo cp -R ${GOPATH}/spice-protocol/release/include/spice-1/* /usr/include/
+		sudo cp -R ${GOPATH}/spice-protocol/release/share/* /usr/share
+		#export SPICE_PROTOCOL_LIBS="${GOPATH}/spice-protocol/build"
+	fi
+}
+
+do_build_spice_server()
+{
+	# https://gitlab.freedesktop.org/spice/spice
+	#python3 -m 
+	# build-packages:
+    #  - libjpeg-turbo8-dev
+    #  - python3-pyparsing
+    #  - python3-six
+	
+	#pip3 install -U pyparsing six --user
+
+	sudo apt install -y \
+	        autoconf-archive \
+			python3-pyparsing \
+			python3-six \
+			liborc-0.4-dev \
+			libjpeg-turbo8-dev \
+			libjpeg-dev
+
+
+	sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+    sudo apt update
+    sudo apt install -qy gcc-6 g++-6 gfortran-6 libgfortran-6-dev gcc-6-base #\
+                        #gcc-7  g++-7 gfortran-7 libgfortran-7-dev gcc-7-base \
+                        #gcc-8  g++-8 gfortran-8 libgfortran-8-dev gcc-8-base \
+                        #gcc-9  g++-9 gfortran-9 libgfortran-9-dev gcc-9-base \
+                        #fort77
+	# http://manpages.ubuntu.com/manpages/trusty/man1/ccache.1.html
+
+	
+	
+	INSTALL_SPICE=0
+	
+	if [ ! -e "${GOPATH}/spice" ]; then
+		msg "Cloning spice Repository"
+		cd ${GOPATH}
+		git clone --recurse https://gitlab.freedesktop.org/spice/spice.git
+
+		#INSTALL_SPICE=1
+	else
+		msg "Checking for updates in spice Repository"
+		cd ${GOPATH}/spice
+
+		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		git fetch;
+		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		
+		#If has difference set variable and update master
+		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			git checkout master
+			git merge FETCH_HEAD;
+
+			#INSTALL_SPICE=1
+		fi
+	fi
+
+	if [[ ${INSTALL_SPICE} == 1 ]]; then
+		cd ${GOPATH}/spice
+		
+		# https://ccache.dev/manual/3.7.10.html
+		# cp ccache /usr/local/bin/
+		# ln -s ccache /usr/local/bin/gcc
+		# ln -s ccache /usr/local/bin/g++
+		# ln -s ccache /usr/local/bin/cc
+		# ln -s ccache /usr/local/bin/c++
+
+		export CCACHE_CC="gcc-6"
+
+		#meson setup builddir \
+
+		meson --buildtype=release build \
+		    --prefix ${GOPATH}/spice/release \
+			-Dgstreamer=no \
+			-Dmanual=false \
+			-Dlz4=false \
+			-Dsasl=false \
+			-Dopus=disabled \
+			-Dsmartcard=disabled \
+			-Dtests=false
+	
+		meson install -C build
+
+		sudo cp -R ${GOPATH}/spice/release/* /usr/
+		#echo "${GOPATH}/spice/release/lib/x86_64-linux-gnu" | sudo tee /etc/ld.so.conf.d/spice.conf
+		sudo ldconfig
+		
+		#--sysconfdir=/etc \
+		#--localstatedir=/var \
+		#--libdir=/usr/lib \
+		#--prefix=/usr \
+		#make
+		#sudo make install
+	fi
+}
 #================================================================================
 do_build_qemu()
 {
@@ -744,10 +909,12 @@ do_build_qemu()
 	#
  	#DEPENDS:
     #  bison flex pkg-config libcap-ng-dev libglib2.0-dev libpixman-1-dev libaio-dev
-    #  genisoimage libmagic1 libpixman-1-0
+    #  genisoimage libmagic1 libpixman-1-0 librados-dev
 
 	#AFTER:
 	#  libseccomp
+	#  spice-protocol
+    #  spice-server
 
 	#https://git.qemu.org/git/qemu.git
 	#- --disable-docs
@@ -757,8 +924,11 @@ do_build_qemu()
 	#- --enable-cap-ng
 	#- --enable-kvm
 	#- --enable-linux-aio
+	#- --enable-numa
 	#- --enable-pie
+	#- --enable-rbd
 	#- --enable-seccomp
+	#- --enable-spice
 	#- --enable-system
 	#- --enable-tools
 	#- --enable-vhost-crypto
@@ -784,79 +954,93 @@ do_build_qemu()
 
 	#If this path DONT exists, install libraries
 	if [ ! -e "${GOPATH}/qemu" ]; then
-		sudo apt install -y - bison flex pkg-config libcap-ng-dev libglib2.0-dev libpixman-1-dev libaio-dev libfdt-dev
-		sudo apt install -y genisoimage libmagic1 libpixman-1-0
+		sudo apt install -y - bison flex pkg-config libcap-ng-dev libglib2.0-dev libpixman-1-dev libaio-dev libfdt-dev libnuma-dev librados-dev librbd-dev
+		sudo apt install -y genisoimage libmagic1 libpixman-1-0 
+		sudo apt install -y libspice-server-dev libspice-protocol-dev
 	fi
 
 	#If this path DONT exists, clone it. Otherwise update it
-	if [ ! -e "${GOPATH}/qemu" ]; then
+	if [ -e "${GOPATH}/qemu" ]; then
 		msg "Cloning QEMU Repository"
 		cd ${GOPATH}
+
+		rm -rf qemu
+
 		git clone --recurse https://git.qemu.org/git/qemu.git
 
 		INSTALL_QEMU=1
-	else
-		msg "Checking for updates in QEMU Repository"
-		cd ${GOPATH}/qemu
-
-		GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
-		git fetch;
-		GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
-		
-		#If has difference set variable and update master
-		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
-			git checkout master
-			git merge FETCH_HEAD;
-
-			INSTALL_QEMU=1
-		fi
+	#else
+		#msg "Checking for updates in QEMU Repository"
+		#cd ${GOPATH}/qemu
+		#
+		#GITLOG_LOCAL=$(git log master -n 1 --pretty=%H);
+		#git fetch;
+		#GITLOG_REMOTE=$(git log origin/master -n 1 --pretty=%H);
+		#
+		##If has difference set variable and update master
+		#if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+		#	git checkout master
+		#	git merge FETCH_HEAD;
+		#
+		#	INSTALL_QEMU=1
+		#fi
 	fi
 
 	if [[ ${INSTALL_QEMU} == 1 ]]; then
 		cd ${GOPATH}/qemu
 
-		if [[ "$(echo ${DATE_BRANCH_QEMU} 2> /dev/null)" != "" ]]; then
-			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_QEMU} | head -n1 | cut -d" " -f1)
-			msg "Building QEMU (${BRANCH})"
-			git checkout ${BRANCH}
-			git submodule update --init --recursive
-		else
-			msg "Building QEMU (master)"
+		#if [[ "$(echo ${DATE_BRANCH_QEMU} 2> /dev/null)" != "" ]]; then
+		#	BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_QEMU} | head -n1 | cut -d" " -f1)
+		#	msg "Building QEMU (${BRANCH})"
+		#	git checkout ${BRANCH}
+		#	git submodule update --init --recursive
+		#else
+		#	msg "Building QEMU (master)"
+		#
+		#	git checkout master
+		#	git submodule update --init --recursive
+		#fi
 
-			git checkout master
-			git submodule update --init --recursive
-		fi
+		#git checkout v5.0.0
 
 		# Mangle the configure a bit
-		sed -i "s/^unset target_list$/target_list=\"$(uname -m)-softmmu\"/" configure
-      	sed -i 's#libseccomp_minver=".*#libseccomp_minver="0.0"#g' configure
+		#sed -i "s/^unset target_list$/target_list=\"$(uname -m)-softmmu\"/" configure
+      	#sed -i 's#libseccomp_minver=".*#libseccomp_minver="0.0"#g' configure
 		
+		export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+		export CC=gcc-6
+		export CCACHE_CC=gcc-6
+
 		mkdir build
 		cd build
-		# Run in a bash sub-shell as edksetup.sh requires it
 		../configure \
-		--disable-docs \
-		--disable-slirp \
-		--disable-user \
-		--enable-attr \
-		--enable-cap-ng \
-		--enable-kvm \
-		--enable-linux-aio \
-		--enable-pie \
-		--enable-seccomp \
-		--enable-system \
-		--enable-tools \
-		--enable-vhost-crypto \
-		--enable-vhost-kernel \
-		--enable-vhost-net \
-		--enable-vhost-scsi \
-		--enable-vhost-user \
-		--enable-vhost-vsock \
-		--enable-virtfs \
-		--enable-vnc \
-		--prefix=/usr \
-		--firmwarepath=/usr/share/OVMF/
-		
+			--disable-docs \
+			--disable-slirp \
+			--disable-user \
+			--enable-attr \
+			--enable-cap-ng \
+			--enable-kvm \
+			--enable-linux-aio \
+			--enable-numa \
+			--enable-pie \
+			--enable-rbd \
+			--enable-seccomp \
+			--enable-spice \
+			--enable-system \
+			--enable-tools \
+			--enable-vhost-crypto \
+			--enable-vhost-kernel \
+			--enable-vhost-net \
+			--enable-vhost-scsi \
+			--enable-vhost-user \
+			--enable-vhost-vsock \
+			--enable-virtfs \
+			--enable-vnc \
+			--prefix=/usr \
+			--firmwarepath=/usr/share/OVMF/
+
+		#--firmwarepath="${GOPATH}/share/qemu/"
+
 		#--libseccomppath=${GOPATH}/libseccomp \
 	   	#--firmwarepath=/snap/lxd/current/share/qemu/
 		make -j12
@@ -969,34 +1153,34 @@ build_qemu_ovmf_secureboot()
 		xorriso --as mkisofs -input-charset ASCII -J -rational-rock -e shell.img -no-emul-boot -o shell.iso iso-root/
 		
 		if [ "$(uname -m)" = "aarch64" ]; then
-          sed -i ovmf-vars-generator \
-              -e "s/'-machine', machinetype,/'-machine', 'virt', '-cpu', 'cortex-a57',/" \
-              -e "/charserial1/d" \
-              -e "s/ide-cd/scsi-cd/" \
-              -e "s/'-device',$/'-device', 'virtio-scsi-pci,id=scsi', '-device',/"
+			sed -i ovmf-vars-generator \
+				-e "s/'-machine', machinetype,/'-machine', 'virt', '-cpu', 'cortex-a57',/" \
+				-e "/charserial1/d" \
+				-e "s/ide-cd/scsi-cd/" \
+				-e "s/'-device',$/'-device', 'virtio-scsi-pci,id=scsi', '-device',/"
 			#elif [ "$(uname -m)" = "x86_64" ]; then
 			#cp -f "${GOPATH}/share/qemu/kvmvapic.bin" .
-			#cp  -f /usr/local/share/qemu/kvmvapic.bin .
+			#cp -f /usr/local/share/qemu/kvmvapic.bin .
 
 			#cp -f /usr/share/qemu/kvmvapic.bin .
 		fi
 
-		python3 ovmf-vars-generator \
-        --ovmf-binary "/usr/share/OVMF/OVMF_CODE.fd" \
-        --uefi-shell-iso shell.iso \
-        --ovmf-template-vars "/usr/share/OVMF/OVMF_VARS.fd" \
-		--qemu-binary "qemu-system-$(uname -m)" \
-        --print-output --disable-smm --skip-testing \
-		"${GOPATH}/share/qemu/OVMF.fd"
+		#python3 ovmf-vars-generator \
+        #--ovmf-binary "/usr/share/OVMF/OVMF_CODE.fd" \
+        #--print-output --disable-smm --skip-testing \
+        #--ovmf-template-vars "/usr/share/OVMF/OVMF_VARS.ms.fd" \
+		#--qemu-binary "qemu-system-$(uname -m)" \
+        #--uefi-shell-iso shell.iso \
+		#"${GOPATH}/share/qemu/OVMF.ms.fd"
 
 		#mkdir -p "${GOPATH}/share/qemu/"
-		#python3 ovmf-vars-generator \
-        #--ovmf-binary "${GOPATH}/share/qemu/OVMF_CODE.fd" \
-        #--uefi-shell-iso shell.iso \
-        #--ovmf-template-vars "${GOPATH}/share/qemu/OVMF_VARS.fd" \
-		#--qemu-binary "qemu-system-$(uname -m)" \
-        #--print-output --disable-smm --skip-testing \
-		#"${GOPATH}/share/qemu/OVMF_VARS.ms.fd"
+		python3 ovmf-vars-generator \
+		--qemu-binary "qemu-system-$(uname -m)" \
+        --print-output --disable-smm --skip-testing \
+        --ovmf-binary "${GOPATH}/share/qemu/OVMF_CODE.fd" \
+        --ovmf-template-vars "${GOPATH}/share/qemu/OVMF_VARS.fd" \
+		--uefi-shell-iso shell.iso \
+		"${GOPATH}/share/qemu/OVMF_VARS.ms.fd"
 		
 		#--fedora-version 27 \
     	#--kernel-path /tmp/qosb.kernel \
@@ -1007,8 +1191,9 @@ build_qemu_ovmf_secureboot()
 		#--qemu-binary "${GOPATH}/qemu/$(uname -m)-softmmu/qemu-system-$(uname -m)" \
 		#${GOPATH}/qemu/build/pc-bios/OVMF_VARS.ms.fd
 
-		make -j12
-		sudo make install
+		#make -j12
+		#sudo make install
+		sudo cp -f  "${GOPATH}/share/qemu/OVMF_VARS.ms.fd" /usr/share/OVMF
 	else
 		msg "Nothing to update in QEmu"
 	fi
@@ -1082,6 +1267,7 @@ do_build_lxc()
 		sudo apt install -y libapparmor-dev libcap-dev libgnutls28-dev libselinux1-dev pkg-config
 		###
 		sudo apt install -y libpam-dev libssl-dev
+		sudo apt install -y valgrind
 	fi
 	
 	#If this path DONT exists, clone it. Otherwise update it
@@ -1125,15 +1311,23 @@ do_build_lxc()
 		fi
 
 		./autogen.sh
-		PKG_CONFIG_PATH="${GOPATH}/libseccomp" ./configure --enable-pam \
+		#PKG_CONFIG_PATH="${GOPATH}/libseccomp" ./configure \
+		
+		#LD_LIBRARY_PATH="${GOPATH}"/lxc/src/lxc/.libs \
+		PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" ./configure \
+		            --enable-pam \
+					--disable-selinux \
+					--disable-tests \
+					--disable-examples \
+					--disable-doc \
+					--disable-tools \
+					--disable-api-docs \
+					--disable-bash \
+					--disable-memfd-rexec \
 					--enable-apparmor \
 					--enable-seccomp \
 					--enable-selinux \
-					--enable-capabilities \
-					--disable-memfd-rexec \
-					--disable-examples \
-					--disable-doc \
-					--disable-api-docs
+					--enable-capabilities
 		make -j12
 		sudo make install
 
@@ -1311,7 +1505,9 @@ do_build_lxd()
 	
 		#If has difference set variable and update master
 		if [[ "${GITLOG_LOCAL}" != "${GITLOG_REMOTE}" ]]; then
+			
 			git checkout master
+			git clean -xdf
 			git merge FETCH_HEAD;
 
 			INSTALL_LXD=1
@@ -1337,11 +1533,10 @@ do_build_lxd()
 			BRANCH=$(git log master --pretty=format:"%h %ci %s" --until=${DATE_BRANCH_LXD} | head -n1 | cut -d" " -f1)
 			#BRANCH=$(git log --pretty=format:"%h %ci %s" --since=${DATE_BRANCH_LXD} | tail -n1 | cut -d" " -f1)
 			msg "Building lxd (${BRANCH})"
-			git clean -xdf
 			git checkout ${BRANCH}
 			
 			#Download all the depencies
-			make update
+			#make update
 			
 			#Change the branch of all dependencies
 			for REPO in $(gitup -e "echo" . | cut -d":" -f1 | tail -n +4 | grep -P ".*\/[^(?=(lxd))]"); do 
@@ -1365,6 +1560,9 @@ do_build_lxd()
 			#Change the branch of lxd
 			cd ${GOPATH}/src/github.com/lxc/lxd
 			git clean -xdf
+
+			sed -i 's="vbom.ml/util"="github.com/fvbommel/util"=g' $GOPATH/src/github.com/fvbommel/util/doc.go
+			sed -i 's="vbom.ml/util/sortorder"="github.com/fvbommel/util/sortorder"=g' $GOPATH/src/github.com/fvbommel/util/sortorder/doc.go
 
 			#Download all the depencies
 			make update
