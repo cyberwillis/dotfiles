@@ -1563,6 +1563,7 @@ do_build_lxd()
 
 			sed -i 's="vbom.ml/util"="github.com/fvbommel/util"=g' $GOPATH/src/github.com/fvbommel/util/doc.go
 			sed -i 's="vbom.ml/util/sortorder"="github.com/fvbommel/util/sortorder"=g' $GOPATH/src/github.com/fvbommel/util/sortorder/doc.go
+			sed -i 's="vbom.ml/util/sortorder"="github.com/fvbommel/util/sortorder"=g' $GOPATH/src/github.com/lxc/lxd/lxc/utils.go
 
 			#Download all the depencies
 			make update
@@ -1582,7 +1583,7 @@ Documentation=man:lxd(1)
 
 [Service]
 User=root
-ExecStart=/usr/local/bin/lxd --debug --group ${USER} --logfile=/var/log/lxd/lxd.log
+ExecStart=/usr/local/bin/lxd --debug --group sudo --logfile=/var/log/lxd/lxd.log
 ExecStartPost=/usr/local/bin/lxd waitready --timeout=600
 KillMode=process
 TimeoutStartSec=600
@@ -1595,6 +1596,8 @@ TasksMax=infinity
 [Install]
 WantedBy=multi-user.target
 EOF
+
+			ln -sf  ${GOPATH}/bin/lxd /usr/local/bin/lxd
 
 			sudo systemctl daemon-reload
 			sudo cp ${GOPATH}/lxd.service /lib/systemd/system/lxd.service
